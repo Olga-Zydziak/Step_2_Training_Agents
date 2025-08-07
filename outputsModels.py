@@ -1,4 +1,10 @@
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional, Type
+
+
 class AgentSelection(BaseModel):
+    """Struktura odpowiedzi dla Agenta-Rutera."""
+    thought_process: str = Field(description="Krótki proces myślowy, dlaczego wybrano tych konkretnych agentów do zadania.")
     planners: List[str] = Field(description="Lista nazw agentów-planistów wybranych do zadania.")
     critic: str = Field(description="Nazwa agenta-krytyka wybranego do zadania.")
 
@@ -13,6 +19,8 @@ class EdgeDefinition(BaseModel):
     routes: Optional[Dict[str, str]] = Field(default=None, description="Mapa wyników warunku na nazwy węzłów docelowych.")
 
 class WorkflowPlan(BaseModel):
+    """Struktura odpowiedzi dla Agenta-Architekta. To jest finalny plan grafu."""
+    thought_process: str = Field(description="Proces myślowy krok-po-kroku, który doprowadził do zaprojektowania tego konkretnego grafu.")
     entry_point: str = Field(description="Nazwa węzła, od którego zaczyna się przepływ pracy.")
     nodes: List[NodeDefinition]
     edges: List[EdgeDefinition]

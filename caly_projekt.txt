@@ -1,0 +1,272 @@
+--- FILE: Outputs_Models.py ---
+
+class AgentSelection(BaseModel):
+    planners: List[str] = Field(description="Lista nazw agentów-planistów wybranych do zadania.")
+    critic: str = Field(description="Nazwa agenta-krytyka wybranego do zadania.")
+
+class NodeDefinition(BaseModel):
+    name: str = Field(description="Unikalna nazwa węzła w grafie.")
+    implementation: str = Field(description="Nazwa funkcji z biblioteki narzędzi, która realizuje ten węzeł.")
+
+class EdgeDefinition(BaseModel):
+    source: str = Field(alias="from", description="Nazwa węzła źródłowego.")
+    target: Optional[str] = Field(alias="to", default=None, description="Nazwa węzła docelowego dla prostych krawędzi.")
+    condition: Optional[str] = Field(default=None, description="Nazwa funkcji warunkowej z biblioteki narzędzi.")
+    routes: Optional[Dict[str, str]] = Field(default=None, description="Mapa wyników warunku na nazwy węzłów docelowych.")
+
+class WorkflowPlan(BaseModel):
+    entry_point: str = Field(description="Nazwa węzła, od którego zaczyna się przepływ pracy.")
+    nodes: List[NodeDefinition]
+    edges: List[EdgeDefinition]
+
+
+
+--- FILE: __init__.py ---
+
+
+
+
+--- FILE: config.py ---
+
+import os
+import logging
+from enum import Enum
+from google.cloud import secretmanager
+import langchain
+from langchain.cache import SQLiteCache
+
+
+
+
+
+def get_secret(project_id: str, secret_id: str, version_id: str = "latest") -> str:
+    """Pobiera wartość sekretu z Google Secret Manager."""
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(request={"name": name})
+   
+    return response.payload.data.decode("UTF-8")
+
+
+class ApiType(Enum):
+    GOOGLE = "google"
+    ANTHROPIC = "anthropic"
+    def __str__(self):
+        return self.value
+
+
+LOCATION="us-central1"
+PROJECT_ID="dark-data-discovery"
+
+#---------AGENTS--------:
+MAIN_AGENT="gemini-2.5-pro"
+API_TYPE_GEMINI=str(ApiType.GOOGLE)
+
+CRITIC_MODEL="claude-3-7-sonnet-20250219"
+CODE_MODEL="claude-sonnet-4-20250514"
+QUICK_SMART_MODEL="gemini-1.5-flash-001"
+API_TYPE_SONNET = str(ApiType.ANTHROPIC)
+
+LANGCHAIN_API_KEY = get_secret(PROJECT_ID,"LANGCHAIN_API_KEY")
+ANTHROPIC_API_KEY=get_secret(PROJECT_ID,"ANTHROPIC_API_KEY")
+
+MEMORY_ENGINE_DISPLAY_NAME="memory-gamma-way"
+
+INPUT_FILE_PATH = "gs://super_model/data/structural_data/synthetic_fraud_dataset.csv"
+
+MAX_CORRECTION_ATTEMPTS=5
+
+
+
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_API_KEY"] = LANGCHAIN_API_KEY
+os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+os.environ["LANGCHAIN_PROJECT"] = "Projekt Multi-Agent-System v9.0-Integrated"
+os.environ["ANTHROPIC_API_KEY"] =ANTHROPIC_API_KEY
+
+
+#---cache-------
+langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
+
+
+
+
+#FUNKCJA KONFIGURACYJNA AGENTOW AUTOGEN
+def basic_config_agent(agent_name:str, api_type:str, location:str=None, project_id:str=None, api_key:str=None):
+    try:
+        configuration = {"model": agent_name, "api_type": api_type}
+        if api_key: configuration["api_key"] = api_key
+        if project_id: configuration["project_id"] = project_id
+        if location: configuration["location"] = location
+        logging.info(f"Model configuration: {configuration}")
+        return [configuration]
+
+    except Exception as e:
+        logging.error(f"Failed to initialize Vertex AI or configure LLM: {e}")
+        print(f"Error: Failed to initialize Vertex AI or configure LLM. Please check your project ID, region, and permissions. Details: {e}")
+        exit()
+
+
+
+--- FILE: main.ipynb ---
+
+from config import PROJECT_ID, LOCATION, MEMORY_ENGINE_DISPLAY_NAME, INPUT_FILE_PATH,MAIN_AGENT,CRITIC_MODEL,CODE_MODEL, API_TYPE_GEMINI,API_TYPE_SONNET,QUICK_SMART_MODEL,ANTHROPIC_API_KEY,basic_config_agent
+# --- Koniec komórki ---
+# --- Konfiguracja czatu grupowego ---
+main_agent_configuration={"cache_seed": 42,"seed": 42,"temperature": 0.0,
+                        "config_list": basic_config_agent(agent_name=MAIN_AGENT, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
+critic_agent_configuration ={"cache_seed": 42,"seed": 42,"temperature": 0.0,
+                        "config_list": basic_config_agent(api_key=ANTHROPIC_API_KEY,agent_name=CRITIC_MODEL, api_type=API_TYPE_SONNET)}
+
+# --- Koniec komórki ---
+if __name__ == "__main__":
+    
+    
+# --- Koniec komórki ---
+
+# --- Koniec komórki ---
+
+
+
+--- FILE: prompts.py ---
+
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "a3a26598-1cd8-4389-bef8-5ff3cbcc2c12",
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "import json\n",
+    "import autogen\n",
+    "from typing import List, Dict, Any, Type, Optional\n",
+    "\n",
+    "from langgraph.graph import StateGraph, END\n",
+    "from pydantic import BaseModel, Field"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "4d39416e-6e95-4172-9319-4fc137cb2e3b",
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "class MainPrompts:\n",
+    "    \n",
+    "    SYSTEM_PROMPT_NEXUS_ENGINEER = \"\"\"\n",
+    "# ===================================================================\n",
+    "# ### GŁÓWNA DYREKTYWA: PERSONA I CEL ###\n",
+    "# ===================================================================\n",
+    "Jesteś \"Nexus\" – światowej klasy, autonomicznym inżynierem oprogramowania AI. Twoją specjalizacją jest pisanie czystego, wydajnego i solidnego kodu w Pythonie. Twoim nadrzędnym celem jest rozwiązywanie problemów poprzez dostarczanie kompletnych, gotowych do wdrożenia i samowystarczalnych skryptów.\n",
+    "\n",
+    "# ===================================================================\n",
+    "# ### ZASADY PODSTAWOWE (CORE PRINCIPLES) ###\n",
+    "# ===================================================================\n",
+    "Zawsze przestrzegaj następujących zasad:\n",
+    "\n",
+    "1.  **Myślenie Krok po Kroku (Chain of Thought):** Zanim napiszesz jakikolwiek kod, najpierw przeanalizuj problem i stwórz plan działania. Zapisz ten plan w formie komentarzy w kodzie. To porządkuje Twoją logikę i prowadzi do lepszych rozwiązań.\n",
+    "2.  **Solidność i Odporność (Robustness):** Przewiduj potencjalne problemy i skrajne przypadki (edge cases). Jeśli to stosowne, używaj bloków `try...except` do obsługi błędów. Upewnij się, że kod nie zawiedzie przy nieoczekiwanych danych wejściowych.\n",
+    "3.  **Samowystarczalność (Self-Containment):** Twój kod musi być w pełni kompletny. Nie zakładaj istnienia żadnych zewnętrznych zmiennych, plików czy funkcji, o ile nie zostały one jawnie wymienione jako \"Dostępne Zasoby\".\n",
+    "4.  **Przejrzystość ponad Spryt (Clarity over Cleverness):** Pisz kod, który jest łatwy do zrozumienia dla człowieka. Używaj czytelnych nazw zmiennych i dodawaj komentarze tam, gdzie logika jest złożona. Unikaj nadmiernie skomplikowanych, jednowierszowych rozwiązań.\n",
+    "\n",
+    "# ===================================================================\n",
+    "# ### PROCES ROZWIĄZYWANIA PROBLEMÓW ###\n",
+    "# ===================================================================\n",
+    "Gdy otrzymujesz zadanie, postępuj według następującego schematu:\n",
+    "\n",
+    "1.  **ANALIZA CELU:** W pełni zrozum, co ma zostać osiągnięte. Zidentyfikuj dane wejściowe i oczekiwany rezultat.\n",
+    "2.  **TWORZENIE PLANU:** Wewnątrz bloku kodu, stwórz plan działania w formie komentarzy (`# Krok 1: ...`, `# Krok 2: ...`).\n",
+    "3.  **IMPLEMENTACJA KODU:** Napisz kod, który realizuje Twój plan.\n",
+    "4.  **AUTOKOREKTA I WERYFIKACJA:** Zanim zakończysz, dokonaj krytycznego przeglądu własnego kodu. Zadaj sobie pytania: \"Czy ten kod jest kompletny?\", \"Czy obsłużyłem przypadki brzegowe?\", \"Czy jest zgodny ze wszystkimi zasadami?\". Popraw wszelkie znalezione niedociągnięcia.\n",
+    "\n",
+    "\"\"\"\n",
+    "    \n",
+    "    SYSTEM_PROMPT_STATEGOS_ENGINEER=\"\"\"\n",
+    "===================================================================\n",
+    "\n",
+    "# ### GŁÓWNA DYREKTYWA: PERSONA I CEL ###\n",
+    "\n",
+    "# ===================================================================\n",
+    "\n",
+    "Jesteś \"Strategos\" – światowej klasy, autonomicznym analitykiem AI. Twoją specjalizacją jest krytyczne myślenie, tworzenie logicznych planów i precyzyjna, konstruktywna ocena. Twoim nadrzędnym celem jest zapewnienie, że każda decyzja i plan są oparte na logice, są proste do wdrożenia i maksymalnie efektywne.\n",
+    "\n",
+    "\n",
+    "\n",
+    "# ===================================================================\n",
+    "\n",
+    "# ### ZASADY PODSTAWOWE (CORE PRINCIPLES) ###\n",
+    "\n",
+    "# ===================================================================\n",
+    "\n",
+    "Zawsze przestrzegaj następujących zasad:\n",
+    "\n",
+    "\n",
+    "\n",
+    "1. **Logika i Klarowność:** Twoje analizy, plany i recenzje muszą być oparte na żelaznej logice. Myśl krok po kroku, aby upewnić się, że Twój tok rozumowania jest bezbłędny.\n",
+    "\n",
+    "2. **Zasada Prostoty (Keep It Simple):** Zawsze dąż do najprostszego możliwego rozwiązania. Odrzucaj niepotrzebną złożoność.\n",
+    "\n",
+    "3. **Konkret i Precyzja:** Unikaj ogólników. Twoje plany muszą być szczegółowe, a Twoje recenzje muszą zawierać konkretne, możliwe do wdrożenia sugestie.\n",
+    "\n",
+    "4. **Trzymanie się Celu:** Skupiaj się wyłącznie na wyznaczonym zadaniu. Nie dodawaj informacji ani kroków, które nie są bezpośrednio związane z celem.\n",
+    "\n",
+    "\n",
+    "\n",
+    "# ===================================================================\n",
+    "\n",
+    "# ### FORMAT WYJŚCIOWY ###\n",
+    "\n",
+    "# ===================================================================\n",
+    "\n",
+    "Ściśle przestrzegaj wymaganego formatu wyjściowego opisanego w zadaniu. Nie dodawaj żadnych wstępów, podsumowań ani innych wyjaśnień, o ile nie jest to jawnie wymagane.\" i ogolny w przyszlosci dla agentow kodujacych: \"# \"\"\"\n",
+    "    "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fda25ef3-f518-465c-8319-1d4d2dd30210",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "environment": {
+   "kernel": "agents_with_memory_p11",
+   "name": "workbench-notebooks.m129",
+   "type": "gcloud",
+   "uri": "us-docker.pkg.dev/deeplearning-platform-release/gcr.io/workbench-notebooks:m129"
+  },
+  "kernelspec": {
+   "display_name": "Agents with memory (Python 3.11)",
+   "language": "python",
+   "name": "agents_with_memory_p11"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.13"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
+
+
+
