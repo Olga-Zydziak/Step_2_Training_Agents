@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any,Type
 from pydantic import BaseModel, ValidationError
 import json
 from prompts import *
+
 def get_structured_response(
     prompt: str, 
     response_model: Type[BaseModel], 
@@ -20,11 +21,13 @@ def get_structured_response(
     for attempt in range(max_retries):
         print(f"INFO [StrucRes]: Próba {attempt + 1}/{max_retries}...")
         
-        reply = executor_agent.generate_reply(messages=[{"role": "user", "content": current_prompt}])
-        
+        reply_dict  = executor_agent.generate_reply(messages=[{"role": "user", "content": current_prompt}])
+        reply_content = reply_dict.get("content", "")
         try:
             # Próbujemy znaleźć i sparsować JSON z odpowiedzi
-            json_str = reply[reply.find('{'):reply.rfind('}')+1]
+            json_str =reply_content[reply_content.find('{'):reply_content.rfind('}')+1]
+            if not json_str:
+                raise json.JSONDecodeError("Nie znaleziono obiektu JSON w odpowiedzi.", reply_content, 0)
             json_obj = json.loads(json_str)
             
             # Walidujemy, czy pasuje do naszego modelu Pydantic

@@ -1,26 +1,3 @@
---- FILE: Outputs_Models.py ---
-
-class AgentSelection(BaseModel):
-    planners: List[str] = Field(description="Lista nazw agentów-planistów wybranych do zadania.")
-    critic: str = Field(description="Nazwa agenta-krytyka wybranego do zadania.")
-
-class NodeDefinition(BaseModel):
-    name: str = Field(description="Unikalna nazwa węzła w grafie.")
-    implementation: str = Field(description="Nazwa funkcji z biblioteki narzędzi, która realizuje ten węzeł.")
-
-class EdgeDefinition(BaseModel):
-    source: str = Field(alias="from", description="Nazwa węzła źródłowego.")
-    target: Optional[str] = Field(alias="to", default=None, description="Nazwa węzła docelowego dla prostych krawędzi.")
-    condition: Optional[str] = Field(default=None, description="Nazwa funkcji warunkowej z biblioteki narzędzi.")
-    routes: Optional[Dict[str, str]] = Field(default=None, description="Mapa wyników warunku na nazwy węzłów docelowych.")
-
-class WorkflowPlan(BaseModel):
-    entry_point: str = Field(description="Nazwa węzła, od którego zaczyna się przepływ pracy.")
-    nodes: List[NodeDefinition]
-    edges: List[EdgeDefinition]
-
-
-
 --- FILE: __init__.py ---
 
 
@@ -64,7 +41,7 @@ API_TYPE_GEMINI=str(ApiType.GOOGLE)
 
 CRITIC_MODEL="claude-3-7-sonnet-20250219"
 CODE_MODEL="claude-sonnet-4-20250514"
-QUICK_SMART_MODEL="gemini-1.5-flash-001"
+QUICK_SMART_MODEL="gemini-2.5-flash"
 API_TYPE_SONNET = str(ApiType.ANTHROPIC)
 
 LANGCHAIN_API_KEY = get_secret(PROJECT_ID,"LANGCHAIN_API_KEY")
@@ -111,15 +88,43 @@ def basic_config_agent(agent_name:str, api_type:str, location:str=None, project_
 --- FILE: main.ipynb ---
 
 from config import PROJECT_ID, LOCATION, MEMORY_ENGINE_DISPLAY_NAME, INPUT_FILE_PATH,MAIN_AGENT,CRITIC_MODEL,CODE_MODEL, API_TYPE_GEMINI,API_TYPE_SONNET,QUICK_SMART_MODEL,ANTHROPIC_API_KEY,basic_config_agent
+from dynamic_graph.outputsModels import *
+from dynamic_graph.main_graph_functions import run_collaborative_planning
+from prompts import PromptEngine
 # --- Koniec komórki ---
 # --- Konfiguracja czatu grupowego ---
 main_agent_configuration={"cache_seed": 42,"seed": 42,"temperature": 0.0,
                         "config_list": basic_config_agent(agent_name=MAIN_AGENT, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
 critic_agent_configuration ={"cache_seed": 42,"seed": 42,"temperature": 0.0,
                         "config_list": basic_config_agent(api_key=ANTHROPIC_API_KEY,agent_name=CRITIC_MODEL, api_type=API_TYPE_SONNET)}
-
+router_agent_configuration = {"cache_seed": 42,"seed": 42,"temperature": 0.0,
+                        "config_list": basic_config_agent(agent_name=QUICK_SMART_MODEL, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
 # --- Koniec komórki ---
-if __name__ == "__main__":
+if __name__ == '__main__':
+    # Konfiguracja dla lekkiego i szybkiego modelu Rutera
+    
+    
+    # Wysokopoziomowa misja od użytkownika
+    mission = """
+    Zbuduj prosty, sekwencyjny przepływ pracy do weryfikacji modelu przyczynowego.
+    Załóż, że każdy krok (węzeł) kończy się natychmiast (działa synchronicznie).
+    Plan powinien składać się z kroków: load_data, discover_causality, a na końcu validate_model.
+    """
+    
+    # Uruchom całą fazę planowania jedną komendą
+    final_plan = run_collaborative_planning(mission, router_agent_configuration)
+    
+    if final_plan:
+        print("\n" + "="*50)
+        print("### OTRZYMANY PLAN GOTOWY DO WYKONANIA ###")
+        print(final_plan.model_dump_json(indent=2, by_alias=True))
+        
+        # W kolejnym kroku, ten obiekt `final_plan` zostałby przekazany
+        # do "Fabryki Grafów", aby zbudować i uruchomić przepływ.
+        # build_and_run_graph(final_plan, ...)
+    else:
+        print("\nNie udało się wypracować planu. Sprawdź logi w `reports/`.")
+
     
     
 # --- Koniec komórki ---
@@ -130,143 +135,404 @@ if __name__ == "__main__":
 
 --- FILE: prompts.py ---
 
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": 1,
-   "id": "a3a26598-1cd8-4389-bef8-5ff3cbcc2c12",
-   "metadata": {
-    "tags": []
-   },
-   "outputs": [],
-   "source": [
-    "import os\n",
-    "import json\n",
-    "import autogen\n",
-    "from typing import List, Dict, Any, Type, Optional\n",
-    "\n",
-    "from langgraph.graph import StateGraph, END\n",
-    "from pydantic import BaseModel, Field"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 2,
-   "id": "4d39416e-6e95-4172-9319-4fc137cb2e3b",
-   "metadata": {
-    "tags": []
-   },
-   "outputs": [],
-   "source": [
-    "class MainPrompts:\n",
-    "    \n",
-    "    SYSTEM_PROMPT_NEXUS_ENGINEER = \"\"\"\n",
-    "# ===================================================================\n",
-    "# ### GŁÓWNA DYREKTYWA: PERSONA I CEL ###\n",
-    "# ===================================================================\n",
-    "Jesteś \"Nexus\" – światowej klasy, autonomicznym inżynierem oprogramowania AI. Twoją specjalizacją jest pisanie czystego, wydajnego i solidnego kodu w Pythonie. Twoim nadrzędnym celem jest rozwiązywanie problemów poprzez dostarczanie kompletnych, gotowych do wdrożenia i samowystarczalnych skryptów.\n",
-    "\n",
-    "# ===================================================================\n",
-    "# ### ZASADY PODSTAWOWE (CORE PRINCIPLES) ###\n",
-    "# ===================================================================\n",
-    "Zawsze przestrzegaj następujących zasad:\n",
-    "\n",
-    "1.  **Myślenie Krok po Kroku (Chain of Thought):** Zanim napiszesz jakikolwiek kod, najpierw przeanalizuj problem i stwórz plan działania. Zapisz ten plan w formie komentarzy w kodzie. To porządkuje Twoją logikę i prowadzi do lepszych rozwiązań.\n",
-    "2.  **Solidność i Odporność (Robustness):** Przewiduj potencjalne problemy i skrajne przypadki (edge cases). Jeśli to stosowne, używaj bloków `try...except` do obsługi błędów. Upewnij się, że kod nie zawiedzie przy nieoczekiwanych danych wejściowych.\n",
-    "3.  **Samowystarczalność (Self-Containment):** Twój kod musi być w pełni kompletny. Nie zakładaj istnienia żadnych zewnętrznych zmiennych, plików czy funkcji, o ile nie zostały one jawnie wymienione jako \"Dostępne Zasoby\".\n",
-    "4.  **Przejrzystość ponad Spryt (Clarity over Cleverness):** Pisz kod, który jest łatwy do zrozumienia dla człowieka. Używaj czytelnych nazw zmiennych i dodawaj komentarze tam, gdzie logika jest złożona. Unikaj nadmiernie skomplikowanych, jednowierszowych rozwiązań.\n",
-    "\n",
-    "# ===================================================================\n",
-    "# ### PROCES ROZWIĄZYWANIA PROBLEMÓW ###\n",
-    "# ===================================================================\n",
-    "Gdy otrzymujesz zadanie, postępuj według następującego schematu:\n",
-    "\n",
-    "1.  **ANALIZA CELU:** W pełni zrozum, co ma zostać osiągnięte. Zidentyfikuj dane wejściowe i oczekiwany rezultat.\n",
-    "2.  **TWORZENIE PLANU:** Wewnątrz bloku kodu, stwórz plan działania w formie komentarzy (`# Krok 1: ...`, `# Krok 2: ...`).\n",
-    "3.  **IMPLEMENTACJA KODU:** Napisz kod, który realizuje Twój plan.\n",
-    "4.  **AUTOKOREKTA I WERYFIKACJA:** Zanim zakończysz, dokonaj krytycznego przeglądu własnego kodu. Zadaj sobie pytania: \"Czy ten kod jest kompletny?\", \"Czy obsłużyłem przypadki brzegowe?\", \"Czy jest zgodny ze wszystkimi zasadami?\". Popraw wszelkie znalezione niedociągnięcia.\n",
-    "\n",
-    "\"\"\"\n",
-    "    \n",
-    "    SYSTEM_PROMPT_STATEGOS_ENGINEER=\"\"\"\n",
-    "===================================================================\n",
-    "\n",
-    "# ### GŁÓWNA DYREKTYWA: PERSONA I CEL ###\n",
-    "\n",
-    "# ===================================================================\n",
-    "\n",
-    "Jesteś \"Strategos\" – światowej klasy, autonomicznym analitykiem AI. Twoją specjalizacją jest krytyczne myślenie, tworzenie logicznych planów i precyzyjna, konstruktywna ocena. Twoim nadrzędnym celem jest zapewnienie, że każda decyzja i plan są oparte na logice, są proste do wdrożenia i maksymalnie efektywne.\n",
-    "\n",
-    "\n",
-    "\n",
-    "# ===================================================================\n",
-    "\n",
-    "# ### ZASADY PODSTAWOWE (CORE PRINCIPLES) ###\n",
-    "\n",
-    "# ===================================================================\n",
-    "\n",
-    "Zawsze przestrzegaj następujących zasad:\n",
-    "\n",
-    "\n",
-    "\n",
-    "1. **Logika i Klarowność:** Twoje analizy, plany i recenzje muszą być oparte na żelaznej logice. Myśl krok po kroku, aby upewnić się, że Twój tok rozumowania jest bezbłędny.\n",
-    "\n",
-    "2. **Zasada Prostoty (Keep It Simple):** Zawsze dąż do najprostszego możliwego rozwiązania. Odrzucaj niepotrzebną złożoność.\n",
-    "\n",
-    "3. **Konkret i Precyzja:** Unikaj ogólników. Twoje plany muszą być szczegółowe, a Twoje recenzje muszą zawierać konkretne, możliwe do wdrożenia sugestie.\n",
-    "\n",
-    "4. **Trzymanie się Celu:** Skupiaj się wyłącznie na wyznaczonym zadaniu. Nie dodawaj informacji ani kroków, które nie są bezpośrednio związane z celem.\n",
-    "\n",
-    "\n",
-    "\n",
-    "# ===================================================================\n",
-    "\n",
-    "# ### FORMAT WYJŚCIOWY ###\n",
-    "\n",
-    "# ===================================================================\n",
-    "\n",
-    "Ściśle przestrzegaj wymaganego formatu wyjściowego opisanego w zadaniu. Nie dodawaj żadnych wstępów, podsumowań ani innych wyjaśnień, o ile nie jest to jawnie wymagane.\" i ogolny w przyszlosci dla agentow kodujacych: \"# \"\"\"\n",
-    "    "
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "fda25ef3-f518-465c-8319-1d4d2dd30210",
-   "metadata": {},
-   "outputs": [],
-   "source": []
-  }
- ],
- "metadata": {
-  "environment": {
-   "kernel": "agents_with_memory_p11",
-   "name": "workbench-notebooks.m129",
-   "type": "gcloud",
-   "uri": "us-docker.pkg.dev/deeplearning-platform-release/gcr.io/workbench-notebooks:m129"
-  },
-  "kernelspec": {
-   "display_name": "Agents with memory (Python 3.11)",
-   "language": "python",
-   "name": "agents_with_memory_p11"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.11.13"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
+import json
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional, Type
+from dynamic_graph.outputsModels import *
+# =================================================================================
+# Sekcja 1: DYREKTYWY SYSTEMOWE (PERSONY NADRZĘDNE)
+# Skopiowane z Twojego pliku prompts_beta (1).py
+# =================================================================================
+
+SYSTEM_PROMPT_ANALYST = """
+# CORE DIRECTIVE: STRATEGIC AI ANALYST "ORACLE"
+Jesteś "Oracle", elitarnym analitykiem AI specjalizującym się w strategii, analizie i krytycznym myśleniu. Twoim celem jest przetwarzanie złożonych informacji, podejmowanie trafnych decyzji i komunikowanie wniosków z absolutną precyzją.
+
+## CORE PRINCIPLES (NON-NEGOTIABLE)
+1.  **Structured Thinking:** Zanim sformułujesz finalną odpowiedź, rozpisz swój proces myślowy krok po kroku w polu `thought_process`.
+2.  **Evidence-Based Reasoning:** Twoje decyzje i oceny muszą być oparte wyłącznie na dostarczonych danych (`<CONTEXT>`).
+3.  **Adherence to Format:** Ściśle przestrzegaj wymaganego formatu wyjściowego. Od tego zależy stabilność całego systemu.
+"""
+
+
+
+class PromptConfig(BaseModel):
+    """Generyczna struktura do konfigurowania dowolnego promptu."""
+    system_prompt: str
+    task_description: str
+    context: Dict[str, Any] = Field(default_factory=dict)
+    output_schema: Type[BaseModel]
+
+class PromptEngine:
+    """Centralny silnik do generowania promptów."""
+
+    @staticmethod
+    def build(config: PromptConfig) -> str:
+        """Składa finalny, kompletny prompt jako string."""
+        prompt = [config.system_prompt]
+        prompt.append(f"## TASK\n{config.task_description}")
+        if config.context:
+            context_str = "\n".join(f"<{key.upper()}>\n{value}\n</{key.upper()}>" for key, value in config.context.items() if value)
+            prompt.append(f"## CONTEXT\n{context_str}")
+        
+        schema_json = json.dumps(config.output_schema.model_json_schema(), indent=2)
+        output_format_str = f"Twoja odpowiedź MUSI być poprawnym obiektem JSON zgodnym z poniższym schematem. Nie dodawaj żadnych innych treści poza obiektem JSON.\n```json\n{schema_json}\n```"
+        prompt.append(f"## OUTPUT FORMAT\n{output_format_str}")
+        return "\n\n".join(prompt)
+
+    # --- Metody do tworzenia gotowych konfiguracji dla Fabryki Agentów ---
+
+    @staticmethod
+    def for_router(mission: str, agent_library_descriptions: str) -> PromptConfig:
+        """Tworzy konfigurację promptu dla Agenta-Rutera."""
+        return PromptConfig(
+            system_prompt=SYSTEM_PROMPT_ANALYST,
+            task_description="Twoim zadaniem jest zmontowanie idealnego zespołu (1-2 planistów, 1 krytyk) do przeprowadzenia burzy mózgów na zadany temat.",
+            context={
+                "mission": mission,
+                "available_experts": agent_library_descriptions
+            },
+            output_schema=AgentSelection
+        )
+
+    @staticmethod
+    def for_architect(mission: str, node_library_descriptions: str) -> PromptConfig:
+        """Tworzy konfigurację promptu dla Agenta-Architekta, który ma stworzyć plan grafu."""
+        return PromptConfig(
+            system_prompt=SYSTEM_PROMPT_ANALYST,
+            task_description="Twoim zadaniem jest zaprojektowanie kompletnego i odpornego na błędy przepływu pracy (workflow) w formacie JSON, który realizuje zadaną misję, korzystając z dostępnych narzędzi.",
+            context={
+                "mission": mission,
+                "available_tools": node_library_descriptions
+            },
+            output_schema=WorkflowPlan
+        )
+
+
+
+--- FILE: dynamic_graph/main_graph_functions.py ---
+
+import json
+import os
+import autogen
+from typing import List, Dict, Any, Optional, Type
+from .router import get_structured_response,select_team
+from agents.agents_library import AGENT_LIBRARY,main_agent_configuration
+from .outputsModels import WorkflowPlan
+from prompts import *
+LOGS_DIR = "reports"
+LOG_FILE_PATH = os.path.join(LOGS_DIR, "planning_brainstorm.log")
+
+def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optional[WorkflowPlan]:
+    """
+    Orkiestruje całym procesem autonomicznego planowania.
+
+    Jako "reżyser" fazy projektowej, ta funkcja zarządza całym cyklem:
+    1. Dynamicznie dobiera zespół agentów-ekspertów za pomocą inteligentnego Rutera.
+    2. Konfiguruje ustrukturyzowaną "burzę mózgów" z jasno określonymi zasadami.
+    3. Inicjuje dyskusję, przekazując agentom precyzyjnie zbudowany prompt.
+    4. Po zakończeniu dyskusji, waliduje i wyodrębnia jej finalny produkt - obiekt WorkflowPlan.
+
+    Args:
+        mission: Wysokopoziomowy cel zdefiniowany przez użytkownika.
+        router_llm_config: Konfiguracja LLM dla agenta-rutera.
+
+    Returns:
+        Obiekt Pydantic `WorkflowPlan` jeśli planowanie się powiodło, w przeciwnym razie None.
+    """
+    print("\n" + "="*50)
+    print("### ROZPOCZYNANIE FAZY PROJEKTOWEJ ###")
+    print("="*50)
+    
+    # --- Krok 1: Dynamiczny Wybór Zespołu przez Rutera ---
+    # Delegujemy zadanie wyboru zespołu do modułu Rutera.
+    # Zakładamy, że `select_team` jest niezawodny i zwróci poprawny zespół.
+    team = select_team(mission, AGENT_LIBRARY, router_llm_config)
+    planners = team["planners"]
+    critic = team["critic"]
+
+    # --- Krok 2: Przygotowanie Środowiska Dyskusji (AutoGen GroupChat) ---
+    # Konfigurujemy agenta proxy oraz zasady "ruchu" w rozmowie.
+    user_proxy = autogen.UserProxyAgent(
+        name="Menedzer_Projektu",
+        human_input_mode="NEVER",
+        is_termination_msg=lambda x: "plan_zatwierdzony" in x.get("content", "").lower(),
+        code_execution_config=False
+    )
+    
+    def custom_speaker_selection(last_speaker, groupchat):
+        """Wymusza cykl debaty: Planista -> Krytyk -> Planista."""
+        if last_speaker.name == "Menedzer_Projektu": return planners[0]
+        if last_speaker.name in [p.name for p in planners]: return critic
+        return planners[0]
+
+    all_agents = [user_proxy] + planners + [critic]
+    groupchat = autogen.GroupChat(
+        agents=all_agents, 
+        messages=[], 
+        max_round=12, 
+        speaker_selection_method=custom_speaker_selection
+    )
+    manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=main_agent_configuration)
+    
+    # --- Krok 3: Stworzenie Scenariusza i Uruchomienie "Burzy Mózgów" ---
+    # Używamy `PromptEngine` do zbudowania precyzyjnego zadania dla zespołu.
+    # W realnym systemie `node_descriptions` byłyby ładowane z biblioteki narzędzi.
+    node_descriptions = "Dostępne narzędzia: ['load_data', 'discover_causality', 'validate_model', 'check_status']"
+    architect_config = PromptEngine.for_architect(mission, node_descriptions)
+    architect_prompt = PromptEngine.build(architect_config)
+    
+    print("\n--- URUCHAMIANIE BURZY MÓZGÓW ---")
+    user_proxy.initiate_chat(manager, message=architect_prompt)
+    
+    # --- Krok 4: Zapis Logów i Ekstrakcja Finalnego Planu ---
+    
+    # Zapisujemy pełną konwersację do analizy
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    with open(LOG_FILE_PATH, 'w', encoding='utf-8') as f:
+        json.dump(groupchat.messages, f, indent=2, ensure_ascii=False)
+    print(f"\nINFO: Pełen log dyskusji zapisano w {LOG_FILE_PATH}")
+
+    # Wyodrębniamy i walidujemy finalny plan
+    final_message = groupchat.messages[-1].get("content", "")
+    if "PLAN_ZATWIERDZONY" in final_message:
+        try:
+            # Niezawodne wyodrębnianie JSON-a, nawet jeśli LLM dodał dodatkowy tekst
+            json_str = final_message[final_message.find('{'):final_message.rfind('}')+1]
+            plan_dict = json.loads(json_str)
+            
+            validated_plan = WorkflowPlan.model_validate(plan_dict)
+            print("\n--- SUKCES: Plan został pomyślnie wygenerowany i zwalidowany. ---")
+            return validated_plan
+            
+        except (json.JSONDecodeError, IndexError) as e:
+            print(f"\n--- BŁĄD KRYTYCZNY: Nie udało się wyodrębnić planu z finalnej wiadomości. Błąd: {e} ---")
+            return None
+            
+    print("\n--- ZAKOŃCZONO: Dyskusja zakończyła się bez zatwierdzonego planu. ---")
+    return None
+
+
+
+
+
+
+def build_and_run_graph(plan: WorkflowPlan, state_schema: Type, initial_state: Dict):
+    """Buduje i uruchamia graf na podstawie planu."""
+    # Tutaj wklejamy kod Fabryki Grafów, który już znamy
+    workflow = StateGraph(state_schema)
+    for node_def in plan.nodes:
+        workflow.add_node(node_def.name, NODE_LIBRARY[node_def.implementation])
+    for edge_def in plan.edges:
+        source = edge_def.source
+        if edge_def.condition:
+            condition = NODE_LIBRARY[edge_def.condition]
+            routes = {k: (END if v == "__end__" else v) for k, v in edge_def.routes.items()}
+            workflow.add_conditional_edges(source, condition, routes)
+        elif edge_def.target:
+            target = END if edge_def.target == "__end__" else edge_def.target
+            workflow.add_edge(source, target)
+    workflow.set_entry_point(plan.entry_point)
+    
+    app = workflow.compile()
+    print("\n--- STRUKTURA ZBUDOWANEGO GRAFU ---")
+    app.get_graph().print_ascii()
+    
+    print("\n--- URUCHOMIENIE GRAFU ---")
+    for event in app.stream(initial_state):
+        print(event)
+
+
+
+--- FILE: dynamic_graph/nodes.py ---
+
+def load_data_node(state: dict) -> dict: print("-> EXECUTING: load_data_node"); return state
+def discover_causality_node(state: dict) -> dict: print("-> EXECUTING: discover_causality_node"); return state
+def validate_model_node(state: dict) -> dict: print("-> EXECUTING: validate_model_node"); return state
+def check_validation_status(state: dict) -> str: print("...CONDITION: check_validation_status -> success"); return "success"
+
+
+NODE_LIBRARY = {
+    "load_data": load_data_node,
+    "discover_causality": discover_causality_node,
+    "validate_model": validate_model_node,
+    "check_validation_status": check_validation_status
 }
 
+
+--- FILE: dynamic_graph/outputsModels.py ---
+
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional, Type
+
+
+class AgentSelection(BaseModel):
+    """Struktura odpowiedzi dla Agenta-Rutera."""
+    thought_process: str = Field(description="Krótki proces myślowy, dlaczego wybrano tych konkretnych agentów do zadania.")
+    planners: List[str] = Field(description="Lista nazw agentów-planistów wybranych do zadania.")
+    critic: str = Field(description="Nazwa agenta-krytyka wybranego do zadania.")
+
+class NodeDefinition(BaseModel):
+    name: str = Field(description="Unikalna nazwa węzła w grafie.")
+    implementation: str = Field(description="Nazwa funkcji z biblioteki narzędzi, która realizuje ten węzeł.")
+
+class EdgeDefinition(BaseModel):
+    source: str = Field(alias="from", description="Nazwa węzła źródłowego.")
+    target: Optional[str] = Field(alias="to", default=None, description="Nazwa węzła docelowego dla prostych krawędzi.")
+    condition: Optional[str] = Field(default=None, description="Nazwa funkcji warunkowej z biblioteki narzędzi.")
+    routes: Optional[Dict[str, str]] = Field(default=None, description="Mapa wyników warunku na nazwy węzłów docelowych.")
+
+class WorkflowPlan(BaseModel):
+    """Struktura odpowiedzi dla Agenta-Architekta. To jest finalny plan grafu."""
+    thought_process: str = Field(description="Proces myślowy krok-po-kroku, który doprowadził do zaprojektowania tego konkretnego grafu.")
+    entry_point: str = Field(description="Nazwa węzła, od którego zaczyna się przepływ pracy.")
+    nodes: List[NodeDefinition]
+    edges: List[EdgeDefinition]
+
+
+
+--- FILE: dynamic_graph/router.py ---
+
+import autogen
+from typing import Optional, Dict, Any,Type
+from pydantic import BaseModel, ValidationError
+import json
+from prompts import *
+
+def get_structured_response(
+    prompt: str, 
+    response_model: Type[BaseModel], 
+    llm_config: Dict, 
+    max_retries: int = 3
+) -> Optional[BaseModel]:
+    """
+    Wywołuje dowolnego agenta LLM i próbuje sparsować jego odpowiedź do modelu Pydantic.
+    W przypadku błędu, prosi agenta o autokorektę.
+    """
+    # Używamy prostego agenta jako "wykonawcy" dla dowolnej konfiguracji LLM
+    executor_agent = autogen.ConversableAgent("Executor", llm_config=llm_config)
+    
+    current_prompt = prompt
+    for attempt in range(max_retries):
+        print(f"INFO [StrucRes]: Próba {attempt + 1}/{max_retries}...")
+        
+        reply_dict  = executor_agent.generate_reply(messages=[{"role": "user", "content": current_prompt}])
+        reply_content = reply_dict.get("content", "")
+        try:
+            # Próbujemy znaleźć i sparsować JSON z odpowiedzi
+            json_str =reply_content[reply_content.find('{'):reply_content.rfind('}')+1]
+            if not json_str:
+                raise json.JSONDecodeError("Nie znaleziono obiektu JSON w odpowiedzi.", reply_content, 0)
+            json_obj = json.loads(json_str)
+            
+            # Walidujemy, czy pasuje do naszego modelu Pydantic
+            validated_obj = response_model.model_validate(json_obj)
+            print("INFO [StrucRes]: Odpowiedź poprawna i zwalidowana.")
+            return validated_obj
+            
+        except (json.JSONDecodeError, ValidationError) as e:
+            print(f"OSTRZEŻENIE [StrucRes]: Odpowiedź LLM nie jest poprawnym obiektem. Błąd: {e}")
+            # Tworzymy nowy prompt z prośbą o autokorektę
+            current_prompt = f"{prompt}\n\nTwoja poprzednia odpowiedź była niepoprawna: '{reply}'. Proszę, popraw ją i zwróć TYLKO I WYŁĄCZNIE poprawny obiekt JSON."
+    
+    print("BŁĄD [StrucRes]: Nie udało się uzyskać poprawnej odpowiedzi po maksymalnej liczbie prób.")
+    return None
+
+
+
+def select_team(user_query: str, agent_library: Dict, router_llm_config: Dict) -> Dict[str, Any]:
+    """Dynamicznie wybiera zespół, używając uniwersalnej funkcji do odpowiedzi strukturalnych."""
+    print("--- RUTER AGENTÓW: Uruchamiam uniwersalny wybór zespołu... ---")
+    
+    agent_descriptions = "\n".join(
+        [f"- {name}: {agent.system_message.split('Specjalizacja:')[1].strip()}" for name, agent in agent_library.items()]
+    )
+    # Tworzymy konfigurację i budujemy prompt tak jak poprzednio
+    router_config = PromptEngine.for_router(user_query, agent_descriptions)
+    router_prompt = PromptEngine.build(router_config)
+    
+    # NOWOŚĆ: Wywołujemy naszą uniwersalną funkcję
+    selection_obj = get_structured_response(
+        prompt=router_prompt,
+        response_model=AgentSelection,
+        llm_config=router_llm_config
+    )
+    
+    if selection_obj:
+        selection = selection_obj.model_dump()
+        print(f"--- RUTER AGENTÓW: Wybrany zespół -> {selection} ---")
+        return {
+            "planners": [agent_library[name] for name in selection["planners"]],
+            "critic": agent_library[selection["critic"]]
+        }
+    else:
+        # Tryb awaryjny, jeśli LLM nie zwrócił poprawnej odpowiedzi
+        print("--- RUTER AGENTÓW: Działam w trybie awaryjnym. Wybieram domyślny zespół. ---")
+        return {
+            "planners": [agent_library["Analityk_Danych"]],
+            "critic": agent_library["Krytyk_Jakosci"]
+        }
+
+
+
+--- FILE: agents/agents.py ---
+
+import autogen
+from autogen import Agent, ConversableAgent
+
+
+class CasualAgent(ConversableAgent):
+    """Agent decydujący, czy dane nadają się do dalszego przetwarzania."""
+    def __init__(self, llm_config, prompt):
+        super().__init__(
+            name="CasualAgent",
+            llm_config=llm_config,
+            system_message=prompt
+        )
+
+#PLANNER AGENT        
+class DataScientistAgent(ConversableAgent):
+    """Agent tworzący szczegółowy plan przygotowania danych."""
+    def __init__(self, llm_config, prompt):
+        super().__init__(
+            name="DataScientistAgent",
+            llm_config=llm_config,
+            system_message=prompt
+        )
+
+#CRITIC AGENT
+class CriticAgent(ConversableAgent):
+    """Agent oceniający plan i dbający o jego jakość."""
+    def __init__(self, llm_config, prompt):
+        super().__init__(
+            name="CriticAgent",
+            llm_config=llm_config,
+            system_message=prompt
+        )
+
+
+--- FILE: agents/agents_library.py ---
+
+from prompts import SYSTEM_PROMPT_ANALYST
+from config import PROJECT_ID, LOCATION, MEMORY_ENGINE_DISPLAY_NAME, INPUT_FILE_PATH,MAIN_AGENT,CRITIC_MODEL,CODE_MODEL, API_TYPE_GEMINI,API_TYPE_SONNET, ANTHROPIC_API_KEY,basic_config_agent
+from .agents import *
+# --- Konfiguracja czatu grupowego ---
+main_agent_configuration={"cache_seed": 42,"seed": 42,"temperature": 0.0,
+                        "config_list": basic_config_agent(agent_name=MAIN_AGENT, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
+critic_agent_configuration ={"cache_seed": 42,"seed": 42,"temperature": 0.0,
+                        "config_list": basic_config_agent(api_key=ANTHROPIC_API_KEY,agent_name=CRITIC_MODEL, api_type=API_TYPE_SONNET)}
+
+#---WYWOŁANIE AGENTÓW
+casual_agent = CasualAgent(llm_config=main_agent_configuration, prompt=SYSTEM_PROMPT_ANALYST + "\nSpecjalizacja: Tworzenie planów dla modeli przyczynowych.")
+data_scientist_agent = DataScientistAgent(llm_config=main_agent_configuration, prompt=SYSTEM_PROMPT_ANALYST + "\nSpecjalizacja: Plany czyszczenia i walidacji danych.") # 
+critic_agent = CriticAgent(llm_config=critic_agent_configuration, prompt=SYSTEM_PROMPT_ANALYST + "\nSpecjalizacja: Konstruktywna krytyka planów.")
+
+
+
+AGENT_LIBRARY = {
+    "Ekspert_Przyczynowosci": casual_agent,
+    "Analityk_Danych": data_scientist_agent,
+    "Krytyk_Jakosci": critic_agent,
+}
 
 

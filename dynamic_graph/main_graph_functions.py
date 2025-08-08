@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional, Type
 from .router import get_structured_response,select_team
 from agents.agents_library import AGENT_LIBRARY,main_agent_configuration
 from .outputsModels import WorkflowPlan
+from prompts import *
 LOGS_DIR = "reports"
 LOG_FILE_PATH = os.path.join(LOGS_DIR, "planning_brainstorm.log")
 
@@ -78,14 +79,20 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
         json.dump(groupchat.messages, f, indent=2, ensure_ascii=False)
     print(f"\nINFO: Pełen log dyskusji zapisano w {LOG_FILE_PATH}")
 
-    # Wyodrębniamy i walidujemy finalny plan
-    final_message = groupchat.messages[-1].get("content", "")
-    if "PLAN_ZATWIERDZONY" in final_message:
+    final_plan_message = None
+    # Przeglądamy wiadomości od końca, aby znaleźć ostatnią wiadomość od krytyka z zatwierdzeniem
+    for msg in reversed(groupchat.messages):
+        content = msg.get("content", "")
+        if "PLAN_ZATWIERDZONY" in content and msg.get("name") == critic.name:
+            final_plan_message = content
+            break
+
+    if final_plan_message:
         try:
             # Niezawodne wyodrębnianie JSON-a, nawet jeśli LLM dodał dodatkowy tekst
-            json_str = final_message[final_message.find('{'):final_message.rfind('}')+1]
+            json_str = final_plan_message[final_plan_message.find('{'):final_plan_message.rfind('}')+1]
             plan_dict = json.loads(json_str)
-            
+
             validated_plan = WorkflowPlan.model_validate(plan_dict)
             print("\n--- SUKCES: Plan został pomyślnie wygenerowany i zwalidowany. ---")
             return validated_plan
