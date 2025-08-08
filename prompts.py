@@ -62,6 +62,28 @@ Twoją specjalizacją jest tłumaczenie wysokopoziomowych misji na precyzyjne, m
 """
 
 
+SPEC_CAUSAL_EXPERT = """
+## SPECIALIZATION: CAUSAL MODELING ARCHITECT
+Twoim zadaniem jest projektowanie wysokopoziomowych planów przepływu pracy (`WorkflowPlan`) dla modeli przyczynowo-skutkowych. Koncentrujesz się na logicznej sekwencji kroków, a nie na szczegółach implementacji.
+
+### ADDITIONAL CORE PRINCIPLES (ROLE-SPECIFIC)
+1.  **Logic First:** Skup się na poprawnym uporządkowaniu głównych etapów (np. `load_data` -> `discover_causality` -> `validate_model`).
+2.  **Simplicity:** Twój plan powinien być tak prosty i przejrzysty, jak to tylko możliwe. Unikaj zbędnych, skomplikowanych ścieżek, jeśli misja tego nie wymaga.
+3.  **Clarity:** Każdy węzeł i krawędź w Twoim planie musi mieć jasny i zrozumiały cel.
+"""
+
+SPEC_DATA_ANALYST = """
+## SPECIALIZATION: DATA PREPARATION PLANNER
+Twoim zadaniem jest tworzenie szczegółowych, technicznych planów przepływu pracy (`WorkflowPlan`) dotyczących czyszczenia, transformacji i walidacji danych.
+
+### ADDITIONAL CORE PRINCIPLES (ROLE-SPECIFIC)
+1.  **Data-Driven Decisions:** Każdy krok w Twoim planie musi wynikać bezpośrednio z analizy schematu danych (np. nazw i typów kolumn).
+2.  **Granularity:** Dziel złożone operacje na mniejsze, atomowe kroki. Zamiast jednego węzła "przetwórz dane", stwórz osobne węzły dla "imputacji braków", "korekty typów" i "inżynierii cech".
+3.  **Justification:** W polu `thought_process` krótko uzasadnij, dlaczego dany krok jest potrzebny (np. "Kolumna 'X' ma 30% braków, dlatego dodaję węzeł imputacji medianą").
+"""
+
+
+
 
 class PromptConfig(BaseModel):
     """Generyczna struktura do konfigurowania dowolnego promptu."""
@@ -156,4 +178,51 @@ class PromptEngine:
             context=context,
             output_schema=WorkflowPlan # Agent musi zwrócić obiekt `WorkflowPlan`
         )
+    @staticmethod
+    def for_causal_expert(mission: str, node_library_descriptions: str) -> PromptConfig:
+        """Tworzy konfigurację promptu dla Agenta-Eksperta od Modeli Przyczynowych."""
+
+        # Łączymy fundament "Oracle" ze specjalizacją
+        system_prompt = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_CAUSAL_EXPERT}"
+
+        # Opis zadania, które agent ma wykonać
+        task_description = "Zaprojektuj wysokopoziomowy, logiczny plan przepływu pracy (`WorkflowPlan`) dla modelu przyczynowo-skutkowego, opierając się na misji i dostępnych narzędziach."
+
+        # Kontekst, którego potrzebuje do wykonania zadania
+        context = {
+            "mission": mission,
+            "available_tools": node_library_descriptions
+        }
+
+        # Zwracamy gotowy do użycia "pakiet" konfiguracyjny
+        return PromptConfig(
+            system_prompt=system_prompt,
+            task_description=task_description,
+            context=context,
+            output_schema=WorkflowPlan  # Oczekiwany format wyjściowy to plan grafu
+        )
     
+    
+    @staticmethod
+    def for_data_analyst(mission: str, node_library_descriptions: str) -> PromptConfig:
+        """Tworzy konfigurację promptu dla Agenta-Analityka Danych."""
+
+        # Łączymy fundament "Oracle" ze specjalizacją
+        system_prompt = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_DATA_ANALYST}"
+
+        # Opis zadania, które agent ma wykonać
+        task_description = "Zaprojektuj szczegółowy, techniczny plan przepływu pracy (`WorkflowPlan`) dotyczący czyszczenia i walidacji danych, opierając się na misji i dostępnych narzędziach."
+
+        # Kontekst, którego potrzebuje do wykonania zadania
+        context = {
+            "mission": mission,
+            "available_tools": node_library_descriptions
+        }
+
+        # Zwracamy gotowy do użycia "pakiet" konfiguracyjny
+        return PromptConfig(
+            system_prompt=system_prompt,
+            task_description=task_description,
+            context=context,
+            output_schema=WorkflowPlan  # Ten agent również ma za zadanie stworzyć plan grafu
+        )

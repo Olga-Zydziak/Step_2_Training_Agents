@@ -61,9 +61,7 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
     )
     manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=main_agent_configuration)
     
-    # --- Krok 3: Stworzenie Scenariusza i Uruchomienie "Burzy Mózgów" ---
-    # Używamy `PromptEngine` do zbudowania precyzyjnego zadania dla zespołu.
-    # W realnym systemie `node_descriptions` byłyby ładowane z biblioteki narzędzi.
+   
     node_descriptions = "Dostępne narzędzia: ['load_data', 'discover_causality', 'validate_model', 'check_status']"
     architect_config = PromptEngine.for_architect(mission, node_descriptions)
     architect_prompt = PromptEngine.build(architect_config)
