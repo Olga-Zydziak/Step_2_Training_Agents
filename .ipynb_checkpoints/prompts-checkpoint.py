@@ -1,7 +1,7 @@
 import json
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional, Type
-
+from dynamic_graph.outputsModels import *
 # =================================================================================
 # Sekcja 1: DYREKTYWY SYSTEMOWE (PERSONY NADRZĘDNE)
 # Skopiowane z Twojego pliku prompts_beta (1).py
