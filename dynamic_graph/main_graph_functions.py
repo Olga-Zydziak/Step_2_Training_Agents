@@ -4,7 +4,7 @@ import autogen
 from langgraph.graph import StateGraph, END 
 from typing import List, Dict, Any, Optional, Type
 from .router import get_structured_response,select_team
-from agents.agents_library import AGENT_LIBRARY,main_agent_configuration
+from agents.agents_library import DISCUSSION_AGENT_LIBRARY,main_agent_configuration
 from agents.agents import CasualAgent, DataScientistAgent
 from .outputsModels import WorkflowPlan
 from .nodes import NODE_LIBRARY
@@ -44,7 +44,7 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
     # --- Krok 1: Dynamiczny Wybór Zespołu przez Rutera ---
     # Delegujemy zadanie wyboru zespołu do modułu Rutera.
     # Zakładamy, że `select_team` jest niezawodny i zwróci poprawny zespół.
-    team = select_team(mission, AGENT_LIBRARY, router_llm_config)
+    team = select_team(mission, DISCUSSION_AGENT_LIBRARY, router_llm_config)
     planners = team["planners"]
     critic = team["critic"]
 

@@ -4,7 +4,7 @@ import autogen
 from langgraph.graph import StateGraph, END 
 from typing import List, Dict, Any, Optional, Type
 from .router import get_structured_response,select_team
-from agents.agents_library import AGENT_LIBRARY,main_agent_configuration
+from agents.agents_library import DISCUSSION_AGENT_LIBRARY,main_agent_configuration
 from agents.agents import CasualAgent, DataScientistAgent
 from .outputsModels import WorkflowPlan
 from .nodes import NODE_LIBRARY
@@ -44,7 +44,7 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
     # --- Krok 1: Dynamiczny Wybór Zespołu przez Rutera ---
     # Delegujemy zadanie wyboru zespołu do modułu Rutera.
     # Zakładamy, że `select_team` jest niezawodny i zwróci poprawny zespół.
-    team = select_team(mission, AGENT_LIBRARY, router_llm_config)
+    team = select_team(mission, DISCUSSION_AGENT_LIBRARY, router_llm_config)
     planners = team["planners"]
     critic = team["critic"]
 
@@ -83,8 +83,8 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
     )
     manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=main_agent_configuration)
     
-   
-    node_descriptions = "Dostępne narzędzia: ['load_data', 'discover_causality', 'validate_model', 'check_status']"
+    descriptions = [f"- {name}: {details['description']}" for name, details in NODE_LIBRARY.items()]
+    node_descriptions = "Dostępne narzędzia:\n" + "\n".join(descriptions)
     
     # Używamy mapy, aby dynamicznie wybrać fabrykę promptu
     planner_instance = planners[0]
@@ -180,14 +180,18 @@ def build_and_run_graph(plan: WorkflowPlan, state_schema: Type, initial_state: D
     """Buduje i uruchamia graf na podstawie planu."""
     # Tutaj wklejamy kod Fabryki Grafów, który już znamy
     workflow = StateGraph(state_schema)
+    # Zaktualizowana logika dodawania węzłów do grafu
     for node_def in plan.nodes:
-        workflow.add_node(node_def.name, NODE_LIBRARY[node_def.implementation])
+        node_function = NODE_LIBRARY[node_def.implementation]['function']
+        workflow.add_node(node_def.name, node_function)
+
     for edge_def in plan.edges:
         source = edge_def.source
         if edge_def.condition:
-            condition = NODE_LIBRARY[edge_def.condition]
+            # Tutaj również odwołujemy się do klucza 'function'
+            condition_function = NODE_LIBRARY[edge_def.condition]['function']
             routes = {k: (END if v == "__end__" else v) for k, v in edge_def.routes.items()}
-            workflow.add_conditional_edges(source, condition, routes)
+            workflow.add_conditional_edges(source, condition_function, routes)
         elif edge_def.target:
             target = END if edge_def.target == "__end__" else edge_def.target
             workflow.add_edge(source, target)

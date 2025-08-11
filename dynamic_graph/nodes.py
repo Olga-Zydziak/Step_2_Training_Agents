@@ -1,4 +1,8 @@
 import pandas as pd
+import numpy as np
+
+# Importujemy naszą centralną bibliotekę, w której "mieszkają" wszyscy agenci
+from agents.agents_library import WORKER_AGENT_LIBRARY
 
 # Tworzymy pusty rejestr i dekorator
 NODE_LIBRARY = {}
@@ -29,25 +33,16 @@ def load_data_node(state: dict) -> dict:
         # Zwracamy błąd do stanu, aby system mógł na niego zareagować w przyszłości
         return {"error": error_message}
 
-@node(name="discover_causality", description="Uruchamia algorytm odkrywania przyczynowości.")
-def discover_causality_node(state: dict) -> dict:
-    """
-    ZAŚLEPKA: W przyszłości ten węzeł uruchomi algorytm odkrywania przyczynowości.
-    """
-    print("-> EXECUTING: discover_causality_node (TODO: Implementacja logiki)")
-    # Na razie symulujemy działanie, przekazując dane dalej
-    print("  [INFO] Odkrywanie przyczynowości... (symulacja)")
-    return {} # Nie zmieniamy stanu
 
-@node(name="validate_model", description="Przeprowadza testy walidacyjne na modelu przyczynowym.")
+@node(name="discover_causality", description="Uruchamia agenta do odkrywania przyczynowości.")
+def discover_causality_node(state: dict) -> dict:
+    # Używamy teraz nowej, poprawnej biblioteki
+    return WORKER_AGENT_LIBRARY["discover_causality_worker"].execute(state)
+
+@node(name="validate_model", description="Uruchamia agenta do walidacji modelu.")
 def validate_model_node(state: dict) -> dict:
-    """
-    ZAŚLEPKA: W przyszłości ten węzeł uruchomi testy walidacyjne dla modelu.
-    """
-    print("-> EXECUTING: validate_model_node (TODO: Implementacja logiki)")
-    # Na razie symulujemy działanie
-    print("  [INFO] Walidacja modelu... (symulacja)")
-    return {} # Nie zmieniamy stanu
+    # Używamy teraz nowej, poprawnej biblioteki
+    return WORKER_AGENT_LIBRARY["validate_model_worker"].execute(state)
 
 @node(name="check_validation", description="Sprawdza status walidacji i zwraca wynik (np. 'success' lub 'failure').")
 def check_validation_status(state: dict) -> str: print("...CONDITION: check_validation_status -> success"); return "success"

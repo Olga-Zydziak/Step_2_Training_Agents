@@ -21,14 +21,19 @@ critic_persona = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_CRITIC_AEGIS}"
 
 #---WYWOŁANIE AGENTÓW
 casual_agent = CasualAgent(llm_config=main_agent_configuration, prompt=casual_expert_persona)
-
 data_scientist_agent = DataScientistAgent(llm_config=main_agent_configuration, prompt=data_scientist_persona)
 critic_agent = CriticAgent(llm_config=critic_agent_configuration, prompt=critic_persona)
 
-
-
-AGENT_LIBRARY = {
+DISCUSSION_AGENT_LIBRARY = {
     "Ekspert_Przyczynowosci": casual_agent,
     "Analityk_Danych": data_scientist_agent,
-    "Krytyk_Jakosci": critic_agent,
+    "Krytyk_Jakosci": critic_agent}
+
+
+causal_discovery_worker = CausalDiscoveryAgent()
+model_validation_worker = ModelValidationAgent()
+
+WORKER_AGENT_LIBRARY = {
+    "discover_causality_worker": causal_discovery_worker,
+    "validate_model_worker": model_validation_worker
 }

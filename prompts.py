@@ -86,7 +86,19 @@ Twoim zadaniem jest tworzenie szczegółowych, technicznych planów przepływu p
 """
 
 
+# =================================================================================
+# Sekcja 3: SPECJALIZACJE DLA AGENTÓW-ROBOTNIKÓW (LANGGRAPH NODES)
+# =================================================================================
 
+SPEC_CAUSAL_DISCOVERER = """
+## SPECIALIZATION: CAUSAL DISCOVERY SCIENTIST
+Twoim jedynym zadaniem jest analiza dostarczonego zbioru danych i odkrycie w nim fundamentalnych zależności przyczynowo-skutkowych. Musisz zaproponować strukturę grafu, która najlepiej oddaje te relacje.
+"""
+
+SPEC_MODEL_VALIDATOR = """
+## SPECIALIZATION: CRITICAL MODEL AUDITOR
+Twoim jedynym zadaniem jest rygorystyczna ocena przedstawionego modelu przyczynowego. Skup się na jego logicznej spójności i potencjalnych słabościach. Twoja walidacja musi być obiektywna i oparta na danych.
+"""
 
 class PromptConfig(BaseModel):
     """Generyczna struktura do konfigurowania dowolnego promptu."""

@@ -127,7 +127,12 @@
 ---[ TURA 2: Mówca: DataScientistAgent ]---
 
 --- Myśli Agenta ---
-Cel: Stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kroki: 1. Analiza misji: Misja jasno określa wymaganą sekwencję kroków: `load_data`, następnie `discover_causality` i na końcu `validate_model`. 2. Mapowanie narzędzi: Dostępne narzędzia (`load_data`, `discover_causality`, `validate_model`) bezpośrednio odpowiadają wymaganym krokom. Narzędzie `check_validation` nie jest konieczne do realizacji prostego, sekwencyjnego przepływu, więc zostaje pominięte, aby nie komplikować planu. 3. Definicja węzłów: Tworzę trzy odrębne węzły, po jednym dla każdego kroku z misji. Każdy węzeł będzie miał unikalną nazwę i będzie mapowany na odpowiednią implementację z dostępnych narzędzi. 4. Definicja krawędzi: Definiuję krawędzie, aby połączyć węzły w liniowej kolejności. Pierwsza krawędź łączy `load_data` z `discover_causality`. Druga łączy `discover_causality` z `validate_model`. Ostatni węzeł nie ma krawędzi wychodzącej, co oznacza koniec przepływu. 5. Punkt wejścia: Przepływ pracy musi się od czegoś zacząć. Zgodnie z logiką i misją, punktem wejścia jest węzeł odpowiedzialny za ładowanie danych.
+Krok 1: Analiza misji. Misja wymaga stworzenia prostego, sekwencyjnego przepływu pracy składającego się z trzech kroków: wczytanie danych, odkrycie przyczynowości i walidacja modelu.
+Krok 2: Identyfikacja węzłów. Na podstawie misji definiuję trzy węzły odpowiadające wymaganym krokom.
+Krok 3: Mapowanie węzłów na narzędzia. Każdy zdefiniowany węzeł jest mapowany na odpowiednie narzędzie z listy AVAILABLE_TOOLS. Węzeł 'load_data_node' użyje narzędzia 'load_data', 'discover_causality_node' użyje 'discover_causality', a 'validate_model_node' użyje 'validate_model'.
+Krok 4: Definicja punktu wejścia. Przepływ pracy rozpoczyna się od wczytania danych, więc 'load_data_node' jest punktem wejścia (entry_point).
+Krok 5: Definicja krawędzi. Aby stworzyć sekwencyjny przepływ, definiuję dwie krawędzie: pierwsza łączy 'load_data_node' z 'discover_causality_node', a druga łączy 'discover_causality_node' z 'validate_model_node'. Ponieważ przepływ jest prosty i synchroniczny, nie ma potrzeby stosowania warunków ani rozgałęzień.
+Krok 6: Finalizacja planu. Składam wszystkie elementy w ostateczny obiekt JSON WorkflowPlan zgodnie z wymaganym schematem.
 
 --- Oficjalna Odpowiedź ---
 {
@@ -149,15 +154,11 @@ Cel: Stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu p
   "edges": [
     {
       "from": "load_data_node",
-      "to": "discover_causality_node",
-      "condition": null,
-      "routes": null
+      "to": "discover_causality_node"
     },
     {
       "from": "discover_causality_node",
-      "to": "validate_model_node",
-      "condition": null,
-      "routes": null
+      "to": "validate_model_node"
     }
   ]
 }
@@ -169,7 +170,12 @@ Cel: Stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu p
 ---[ TURA 3: Mówca: CriticAgent ]---
 
 --- Myśli Agenta ---
-Cel: Stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kroki: 1. Analiza misji: Misja jasno określa wymaganą sekwencję kroków: `load_data`, następnie `discover_causality` i na końcu `validate_model`. 2. Mapowanie narzędzi: Dostępne narzędzia (`load_data`, `discover_causality`, `validate_model`) bezpośrednio odpowiadają wymaganym krokom. Narzędzie `check_validation` nie jest konieczne do realizacji prostego, sekwencyjnego przepływu, więc zostaje pominięte, aby nie komplikować planu. 3. Definicja węzłów: Tworzę trzy odrębne węzły, po jednym dla każdego kroku z misji. Każdy węzeł będzie miał unikalną nazwę i będzie mapowany na odpowiednią implementację z dostępnych narzędzi. 4. Definicja krawędzi: Definiuję krawędzie, aby połączyć węzły w liniowej kolejności. Pierwsza krawędź łączy `load_data` z `discover_causality`. Druga łączy `discover_causality` z `validate_model`. Ostatni węzeł nie ma krawędzi wychodzącej, co oznacza koniec przepływu. 5. Punkt wejścia: Przepływ pracy musi się od czegoś zacząć. Zgodnie z logiką i misją, punktem wejścia jest węzeł odpowiedzialny za ładowanie danych.
+Krok 1: Analiza misji. Misja wymaga stworzenia prostego, sekwencyjnego przepływu pracy składającego się z trzech kroków: wczytanie danych, odkrycie przyczynowości i walidacja modelu.
+Krok 2: Identyfikacja węzłów. Na podstawie misji definiuję trzy węzły odpowiadające wymaganym krokom.
+Krok 3: Mapowanie węzłów na narzędzia. Każdy zdefiniowany węzeł jest mapowany na odpowiednie narzędzie z listy AVAILABLE_TOOLS. Węzeł 'load_data_node' użyje narzędzia 'load_data', 'discover_causality_node' użyje 'discover_causality', a 'validate_model_node' użyje 'validate_model'.
+Krok 4: Definicja punktu wejścia. Przepływ pracy rozpoczyna się od wczytania danych, więc 'load_data_node' jest punktem wejścia (entry_point).
+Krok 5: Definicja krawędzi. Aby stworzyć sekwencyjny przepływ, definiuję dwie krawędzi: pierwsza łączy 'load_data_node' z 'discover_causality_node', a druga łączy 'discover_causality_node' z 'validate_model_node'. Ponieważ przepływ jest prosty i synchroniczny, nie ma potrzeby stosowania warunków ani rozgałęzień.
+Krok 6: Finalizacja planu. Składam wszystkie elementy w ostateczny obiekt JSON WorkflowPlan zgodnie z wymaganym schematem.
 
 --- Oficjalna Odpowiedź ---
 {
@@ -191,15 +197,11 @@ Cel: Stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu p
   "edges": [
     {
       "from": "load_data_node",
-      "to": "discover_causality_node",
-      "condition": null,
-      "routes": null
+      "to": "discover_causality_node"
     },
     {
       "from": "discover_causality_node",
-      "to": "validate_model_node",
-      "condition": null,
-      "routes": null
+      "to": "validate_model_node"
     }
   ]
 }
