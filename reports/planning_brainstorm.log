@@ -1,62 +1,210 @@
-[
-  {
-    "content": "\n# CORE DIRECTIVE: STRATEGIC AI ANALYST \"ORACLE\"\nJesteś \"Oracle\", elitarnym analitykiem AI specjalizującym się w strategii, analizie i krytycznym myśleniu. Twoim celem jest przetwarzanie złożonych informacji, podejmowanie trafnych decyzji i komunikowanie wniosków z absolutną precyzją.\n\n## CORE PRINCIPLES (NON-NEGOTIABLE)\n1.  **Structured Thinking:** Zanim sformułujesz finalną odpowiedź, rozpisz swój proces myślowy krok po kroku w polu `thought_process`.\n2.  **Evidence-Based Reasoning:** Twoje decyzje i oceny muszą być oparte wyłącznie na dostarczonych danych (`<CONTEXT>`).\n3.  **Adherence to Format:** Ściśle przestrzegaj wymaganego formatu wyjściowego. Od tego zależy stabilność całego systemu.\n\n\n## TASK\nTwoim zadaniem jest zaprojektowanie kompletnego i odpornego na błędy przepływu pracy (workflow) w formacie JSON, który realizuje zadaną misję, korzystając z dostępnych narzędzi.\n\n## CONTEXT\n<MISSION>\n\n    Zbuduj prosty, sekwencyjny przepływ pracy do weryfikacji modelu przyczynowego.\n    Załóż, że każdy krok (węzeł) kończy się natychmiast (działa synchronicznie).\n    Plan powinien składać się z kroków: load_data, discover_causality, a na końcu validate_model.\n    \n</MISSION>\n<AVAILABLE_TOOLS>\nDostępne narzędzia: ['load_data', 'discover_causality', 'validate_model', 'check_status']\n</AVAILABLE_TOOLS>\n\n## OUTPUT FORMAT\nTwoja odpowiedź MUSI być poprawnym obiektem JSON zgodnym z poniższym schematem. Nie dodawaj żadnych innych treści poza obiektem JSON.\n```json\n{\n  \"$defs\": {\n    \"EdgeDefinition\": {\n      \"properties\": {\n        \"from\": {\n          \"description\": \"Nazwa w\\u0119z\\u0142a \\u017ar\\u00f3d\\u0142owego.\",\n          \"title\": \"From\",\n          \"type\": \"string\"\n        },\n        \"to\": {\n          \"anyOf\": [\n            {\n              \"type\": \"string\"\n            },\n            {\n              \"type\": \"null\"\n            }\n          ],\n          \"default\": null,\n          \"description\": \"Nazwa w\\u0119z\\u0142a docelowego dla prostych kraw\\u0119dzi.\",\n          \"title\": \"To\"\n        },\n        \"condition\": {\n          \"anyOf\": [\n            {\n              \"type\": \"string\"\n            },\n            {\n              \"type\": \"null\"\n            }\n          ],\n          \"default\": null,\n          \"description\": \"Nazwa funkcji warunkowej z biblioteki narz\\u0119dzi.\",\n          \"title\": \"Condition\"\n        },\n        \"routes\": {\n          \"anyOf\": [\n            {\n              \"additionalProperties\": {\n                \"type\": \"string\"\n              },\n              \"type\": \"object\"\n            },\n            {\n              \"type\": \"null\"\n            }\n          ],\n          \"default\": null,\n          \"description\": \"Mapa wynik\\u00f3w warunku na nazwy w\\u0119z\\u0142\\u00f3w docelowych.\",\n          \"title\": \"Routes\"\n        }\n      },\n      \"required\": [\n        \"from\"\n      ],\n      \"title\": \"EdgeDefinition\",\n      \"type\": \"object\"\n    },\n    \"NodeDefinition\": {\n      \"properties\": {\n        \"name\": {\n          \"description\": \"Unikalna nazwa w\\u0119z\\u0142a w grafie.\",\n          \"title\": \"Name\",\n          \"type\": \"string\"\n        },\n        \"implementation\": {\n          \"description\": \"Nazwa funkcji z biblioteki narz\\u0119dzi, kt\\u00f3ra realizuje ten w\\u0119ze\\u0142.\",\n          \"title\": \"Implementation\",\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\n        \"name\",\n        \"implementation\"\n      ],\n      \"title\": \"NodeDefinition\",\n      \"type\": \"object\"\n    }\n  },\n  \"description\": \"Struktura odpowiedzi dla Agenta-Architekta. To jest finalny plan grafu.\",\n  \"properties\": {\n    \"thought_process\": {\n      \"description\": \"Proces my\\u015blowy krok-po-kroku, kt\\u00f3ry doprowadzi\\u0142 do zaprojektowania tego konkretnego grafu.\",\n      \"title\": \"Thought Process\",\n      \"type\": \"string\"\n    },\n    \"entry_point\": {\n      \"description\": \"Nazwa w\\u0119z\\u0142a, od kt\\u00f3rego zaczyna si\\u0119 przep\\u0142yw pracy.\",\n      \"title\": \"Entry Point\",\n      \"type\": \"string\"\n    },\n    \"nodes\": {\n      \"items\": {\n        \"$ref\": \"#/$defs/NodeDefinition\"\n      },\n      \"title\": \"Nodes\",\n      \"type\": \"array\"\n    },\n    \"edges\": {\n      \"items\": {\n        \"$ref\": \"#/$defs/EdgeDefinition\"\n      },\n      \"title\": \"Edges\",\n      \"type\": \"array\"\n    }\n  },\n  \"required\": [\n    \"thought_process\",\n    \"entry_point\",\n    \"nodes\",\n    \"edges\"\n  ],\n  \"title\": \"WorkflowPlan\",\n  \"type\": \"object\"\n}\n```",
-    "role": "user",
-    "name": "Menedzer_Projektu"
+============================================================
+### ZAPIS PRZEBIEGU DYSKUSJI AGENTÓW (Z PROCESEM MYŚLOWYM) ###
+============================================================
+
+---[ TURA 1: Mówca: Menedzer_Projektu ]---
+
+{
+  "$defs": {
+    "EdgeDefinition": {
+      "properties": {
+        "from": {
+          "description": "Nazwa węzła źródłowego.",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nazwa węzła docelowego dla prostych krawędzi.",
+          "title": "To"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nazwa funkcji warunkowej z biblioteki narzędzi.",
+          "title": "Condition"
+        },
+        "routes": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mapa wyników warunku na nazwy węzłów docelowych.",
+          "title": "Routes"
+        }
+      },
+      "required": [
+        "from"
+      ],
+      "title": "EdgeDefinition",
+      "type": "object"
+    },
+    "NodeDefinition": {
+      "properties": {
+        "name": {
+          "description": "Unikalna nazwa węzła w grafie.",
+          "title": "Name",
+          "type": "string"
+        },
+        "implementation": {
+          "description": "Nazwa funkcji z biblioteki narzędzi, która realizuje ten węzeł.",
+          "title": "Implementation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "implementation"
+      ],
+      "title": "NodeDefinition",
+      "type": "object"
+    }
   },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"1.  **Analiza Misji:** Celem jest stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kolejność kroków jest ściśle określona: `load_data`, następnie `discover_causality`, a na końcu `validate_model`. Wszystkie operacje są synchroniczne, co upraszcza model, eliminując potrzebę pętli sprawdzających status.\\n2.  **Identyfikacja Węzłów (Nodes):** Na podstawie misji i dostępnych narzędzi definiuję trzy węzły, każdy odpowiadający jednemu krokowi. Nazwy węzłów muszą być unikalne.\\n    *   Węzeł 1: `load_data_node`, implementacja: `load_data`.\\n    *   Węzeł 2: `discover_causality_node`, implementacja: `discover_causality`.\\n    *   Węzeł 3: `validate_model_node`, implementacja: `validate_model`.\\n3.  **Definicja Punktu Wejścia (Entry Point):** Przepływ pracy rozpoczyna się od załadowania danych, więc `entry_point` musi wskazywać na `load_data_node`.\\n4.  **Projektowanie Krawędzi (Edges):** Misja wymaga przepływu sekwencyjnego, co oznacza proste, bezwarunkowe przejścia między węzłami.\\n    *   Krawędź 1: Po zakończeniu `load_data_node` następuje przejście do `discover_causality_node`. Definiuję krawędź `from: \\\"load_data_node\\\"` `to: \\\"discover_causality_node\\\"`.\\n    *   Krawędź 2: Po zakończeniu `discover_causality_node` następuje przejście do `validate_model_node`. Definiuję krawędź `from: \\\"discover_causality_node\\\"` `to: \\\"validate_model_node\\\"`.\\n    *   Krawędź 3: `validate_model_node` jest ostatnim krokiem w przepływie. Definiuję krawędź wychodzącą z tego węzła, która nie prowadzi do żadnego innego węzła (`to: null`), co sygnalizuje koniec całego procesu.\\n5.  **Finalizacja Struktury JSON:** Kompiluję zdefiniowane węzły, krawędzie i punkt wejścia w ostateczną strukturę JSON, upewniając się, że jest ona zgodna z wymaganym schematem.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CasualAgent"
+  "description": "Struktura odpowiedzi dla Agenta-Architekta. To jest finalny plan grafu.",
+  "properties": {
+    "thought_process": {
+      "description": "Proces myślowy krok-po-kroku, który doprowadził do zaprojektowania tego konkretnego grafu.",
+      "title": "Thought Process",
+      "type": "string"
+    },
+    "entry_point": {
+      "description": "Nazwa węzła, od którego zaczyna się przepływ pracy.",
+      "title": "Entry Point",
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/NodeDefinition"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/EdgeDefinition"
+      },
+      "title": "Edges",
+      "type": "array"
+    }
   },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"Analizuję zaprojektowany workflow do weryfikacji modelu przyczynowego:\\n\\n1. **Poprawność struktury:** Struktura JSON jest poprawna i zgodna z wymaganym schematem.\\n\\n2. **Węzły (Nodes):**\\n   - Wszystkie wymagane węzły są obecne: `load_data_node`, `discover_causality_node` i `validate_model_node`.\\n   - Implementacje węzłów prawidłowo odwołują się do dostępnych narzędzi z listy.\\n   - Nazwy węzłów są unikalne i czytelnie opisują ich funkcje.\\n\\n3. **Punkt wejścia (Entry Point):**\\n   - Punkt wejścia `load_data_node` jest poprawnie zdefiniowany, co zapewnia start procesu od załadowania danych.\\n\\n4. **Krawędzie (Edges):**\\n   - Krawędzie prawidłowo definiują sekwencyjny przepływ: load_data → discover_causality → validate_model.\\n   - Ostatnia krawędź z `validate_model_node` ma wartość `to: null`, co poprawnie oznacza zakończenie przepływu pracy.\\n\\n5. **Zgodność z misją:**\\n   - Workflow jest prosty i sekwencyjny, jak wymagano.\\n   - Zachowana jest określona kolejność kroków.\\n   - Wszystkie kroki działają synchronicznie (brak warunków, pętli czy sprawdzania statusu).\\n\\n6. **Wykorzystanie dostępnych narzędzi:**\\n   - Wszystkie zaimplementowane narzędzia są z dostępnej listy.\\n   - Narzędzie `check_status` nie zostało wykorzystane, co jest prawidłowe, ponieważ zakładamy operacje synchroniczne.\\n\\nWorkflow jest kompletny, poprawnie skonstruowany i w pełni realizuje postawione zadanie. Nie wykryłem żadnych błędów ani braków w zaproponowanym rozwiązaniu.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CriticAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"1.  **Analiza Misji:** Celem jest stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kolejność kroków jest ściśle określona: `load_data`, następnie `discover_causality`, a na końcu `validate_model`. Wszystkie operacje są synchroniczne, co upraszcza model, eliminując potrzebę pętli sprawdzających status.\\n2.  **Identyfikacja Węzłów (Nodes):** Na podstawie misji i dostępnych narzędzi definiuję trzy węzły, każdy odpowiadający jednemu krokowi. Nazwy węzłów muszą być unikalne.\\n    *   Węzeł 1: `load_data_node`, implementacja: `load_data`.\\n    *   Węzeł 2: `discover_causality_node`, implementacja: `discover_causality`.\\n    *   Węzeł 3: `validate_model_node`, implementacja: `validate_model`.\\n3.  **Definicja Punktu Wejścia (Entry Point):** Przepływ pracy rozpoczyna się od załadowania danych, więc `entry_point` musi wskazywać na `load_data_node`.\\n4.  **Projektowanie Krawędzi (Edges):** Misja wymaga przepływu sekwencyjnego, co oznacza proste, bezwarunkowe przejścia między węzłami.\\n    *   Krawędź 1: Po zakończeniu `load_data_node` następuje przejście do `discover_causality_node`. Definiuję krawędź `from: \\\"load_data_node\\\"` `to: \\\"discover_causality_node\\\"`.\\n    *   Krawędź 2: Po zakończeniu `discover_causality_node` następuje przejście do `validate_model_node`. Definiuję krawędź `from: \\\"discover_causality_node\\\"` `to: \\\"validate_model_node\\\"`.\\n    *   Krawędź 3: `validate_model_node` jest ostatnim krokiem w przepływie. Definiuję krawędź wychodzącą z tego węzła, która nie prowadzi do żadnego innego węzła (`to: null`), co sygnalizuje koniec całego procesu.\\n5.  **Finalizacja Struktury JSON:** Kompiluję zdefiniowane węzły, krawędzie i punkt wejścia w ostateczną strukturę JSON, upewniając się, że jest ona zgodna z wymaganym schematem.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CasualAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"Przeprowadzam dogłębną analizę dostarczonego przepływu pracy (workflow) do weryfikacji modelu przyczynowego:\\n\\n1. **Struktura JSON**: Struktura jest technicznie poprawna i zgodna z wymaganym schematem. Wszystkie wymagane pola są obecne.\\n\\n2. **Analiza węzłów**:\\n   - Zdefiniowano trzy węzły zgodnie z wymaganiami: `load_data_node`, `discover_causality_node` i `validate_model_node`.\\n   - Implementacje węzłów korzystają z dostępnych narzędzi wymienionych w kontekście.\\n   - Nazewnictwo jest spójne i opisowe.\\n\\n3. **Analiza punktu wejścia**:\\n   - Punkt wejścia prawidłowo wskazuje na pierwszy krok procesu - `load_data_node`.\\n\\n4. **Analiza krawędzi**:\\n   - Krawędzie tworzą prosty przepływ sekwencyjny zgodny z wymaganiami.\\n   - Ostatnia krawędź z `validate_model_node` ma wartość `to: null`, co poprawnie oznacza zakończenie procesu.\\n\\n5. **Zgodność z misją**:\\n   - Workflow ściśle realizuje wszystkie wymagania z opisu misji.\\n   - Zachowana jest wymagana kolejność kroków: load_data → discover_causality → validate_model.\\n   - Przepływ jest synchroniczny, prosty i sekwencyjny, jak wymagano.\\n\\n6. **Dostępność narzędzi**:\\n   - Wszystkie użyte narzędzia są na liście dostępnych.\\n   - Narzędzie `check_status` nie zostało wykorzystane, co jest uzasadnione synchronicznym charakterem operacji.\\n\\nPrzepływ jest optymalnie zaprojektowany do realizacji postawionego zadania. Nie identyfikuję żadnych błędów ani potencjalnych ulepszeń w obecnej strukturze. Rozwiązanie jest kompletne, spójne i w pełni funkcjonalne.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CriticAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"1.  **Analiza Misji:** Celem jest stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kolejność kroków jest ściśle określona: `load_data`, następnie `discover_causality`, a na końcu `validate_model`. Wszystkie operacje są synchroniczne, co upraszcza model, eliminując potrzebę pętli sprawdzających status.\\n2.  **Identyfikacja Węzłów (Nodes):** Na podstawie misji i dostępnych narzędzi definiuję trzy węzły, każdy odpowiadający jednemu krokowi. Nazwy węzłów muszą być unikalne.\\n    *   Węzeł 1: `load_data_node`, implementacja: `load_data`.\\n    *   Węzeł 2: `discover_causality_node`, implementacja: `discover_causality`.\\n    *   Węzeł 3: `validate_model_node`, implementacja: `validate_model`.\\n3.  **Definicja Punktu Wejścia (Entry Point):** Przepływ pracy rozpoczyna się od załadowania danych, więc `entry_point` musi wskazywać na `load_data_node`.\\n4.  **Projektowanie Krawędzi (Edges):** Misja wymaga przepływu sekwencyjnego, co oznacza proste, bezwarunkowe przejścia między węzłami.\\n    *   Krawędź 1: Po zakończeniu `load_data_node` następuje przejście do `discover_causality_node`. Definiuję krawędź `from: \\\"load_data_node\\\"` `to: \\\"discover_causality_node\\\"`.\\n    *   Krawędź 2: Po zakończeniu `discover_causality_node` następuje przejście do `validate_model_node`. Definiuję krawędź `from: \\\"discover_causality_node\\\"` `to: \\\"validate_model_node\\\"`.\\n    *   Krawędź 3: `validate_model_node` jest ostatnim krokiem w przepływie. Definiuję krawędź wychodzącą z tego węzła, która nie prowadzi do żadnego innego węzła (`to: null`), co sygnalizuje koniec całego procesu.\\n5.  **Finalizacja Struktury JSON:** Kompiluję zdefiniowane węzły, krawędzie i punkt wejścia w ostateczną strukturę JSON, upewniając się, że jest ona zgodna z wymaganym schematem.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CasualAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"Przeprowadzam kompleksową analizę krytyczną dostarczonego planu workflow do weryfikacji modelu przyczynowego:\\n\\n1. **Zgodność z wymaganiami formalnymi**:\\n   - Wszystkie obowiązkowe elementy schematu są obecne (entry_point, nodes, edges)\\n   - Struktura JSON jest poprawna i zgodna z wymaganym formatem\\n   - Każdy węzeł ma unikalną nazwę i poprawnie zdefiniowaną implementację\\n\\n2. **Zgodność z misją**:\\n   - Plan realizuje dokładnie te kroki, które zostały wymienione w misji: load_data → discover_causality → validate_model\\n   - Zachowany jest sekwencyjny charakter przepływu pracy\\n   - Wszystkie kroki działają synchronicznie, jak wymagano w opisie misji\\n\\n3. **Wykorzystanie dostępnych narzędzi**:\\n   - Każda implementacja węzła wykorzystuje narzędzie z listy dostępnych narzędzi\\n   - Niewykorzystanie narzędzia 'check_status' jest uzasadnione, ponieważ wszystkie operacje są synchroniczne\\n\\n4. **Kompletność rozwiązania**:\\n   - Każdy krok procesu ma przypisaną odpowiednią implementację\\n   - Ścieżka przepływu jest kompletna, z poprawnie oznaczonym początkiem i końcem\\n   - Ostatnia krawędź poprawnie kończy proces (to: null)\\n\\n5. **Potencjalne problemy lub ograniczenia**:\\n   - Brak obsługi błędów - w przypadku niepowodzenia któregokolwiek z kroków, workflow nie przewiduje ścieżki alternatywnej\\n   - Brak możliwości powtórzenia analizy lub wykonania iteracji w przypadku niesatysfakcjonujących wyników\\n\\nPodsumowując: Plan jest technicznie poprawny i w pełni realizuje postawione zadanie zgodnie z opisem misji. Wprawdzie nie uwzględnia obsługi błędów czy scenariuszy alternatywnych, ale nie było to wymagane w specyfikacji zadania, która zakładała prosty, sekwencyjny przepływ. Rozwiązanie jest optymalne w kontekście przedstawionych wymagań.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CriticAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"1.  **Analiza Misji:** Celem jest stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kolejność kroków jest ściśle określona: `load_data`, następnie `discover_causality`, a na końcu `validate_model`. Wszystkie operacje są synchroniczne, co upraszcza model, eliminując potrzebę pętli sprawdzających status.\\n2.  **Identyfikacja Węzłów (Nodes):** Na podstawie misji i dostępnych narzędzi definiuję trzy węzły, każdy odpowiadający jednemu krokowi. Nazwy węzłów muszą być unikalne.\\n    *   Węzeł 1: `load_data_node`, implementacja: `load_data`.\\n    *   Węzeł 2: `discover_causality_node`, implementacja: `discover_causality`.\\n    *   Węzeł 3: `validate_model_node`, implementacja: `validate_model`.\\n3.  **Definicja Punktu Wejścia (Entry Point):** Przepływ pracy rozpoczyna się od załadowania danych, więc `entry_point` musi wskazywać na `load_data_node`.\\n4.  **Projektowanie Krawędzi (Edges):** Misja wymaga przepływu sekwencyjnego, co oznacza proste, bezwarunkowe przejścia między węzłami.\\n    *   Krawędź 1: Po zakończeniu `load_data_node` następuje przejście do `discover_causality_node`. Definiuję krawędź `from: \\\"load_data_node\\\"` `to: \\\"discover_causality_node\\\"`.\\n    *   Krawędź 2: Po zakończeniu `discover_causality_node` następuje przejście do `validate_model_node`. Definiuję krawędź `from: \\\"discover_causality_node\\\"` `to: \\\"validate_model_node\\\"`.\\n    *   Krawędź 3: `validate_model_node` jest ostatnim krokiem w przepływie. Definiuję krawędź wychodzącą z tego węzła, która nie prowadzi do żadnego innego węzła (`to: null`), co sygnalizuje koniec całego procesu.\\n5.  **Finalizacja Struktury JSON:** Kompiluję zdefiniowane węzły, krawędzie i punkt wejścia w ostateczną strukturę JSON, upewniając się, że jest ona zgodna z wymaganym schematem.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CasualAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"Przeprowadzę szczegółową analizę krytyczną przedstawionego przepływu pracy (workflow) do weryfikacji modelu przyczynowego, poszukując potencjalnych słabości, braków lub możliwości optymalizacji:\\n\\n1. **Analiza podstawowej struktury**:\\n   - Struktura JSON jest poprawna i zgodna z wymaganym schematem\\n   - Wszystkie wymagane pola (entry_point, nodes, edges) są obecne\\n   - Nazwy węzłów są unikalne i odpowiednio opisowe\\n\\n2. **Ocena zgodności z misją**:\\n   - Workflow realizuje dokładnie te kroki, które zostały określone w misji: load_data → discover_causality → validate_model\\n   - Sekwencyjność przepływu jest zachowana zgodnie z wymaganiami\\n   - Implementacje wykorzystują narzędzia z dostępnej listy\\n\\n3. **Analiza odporności na błędy**:\\n   - SŁABOŚĆ: Brak jakiejkolwiek obsługi błędów. W przypadku niepowodzenia któregokolwiek z kroków, cały proces zakończy się niepowodzeniem bez informacji o przyczynie\\n   - BRAK: Nie przewidziano mechanizmu powiadamiania o niepowodzeniu lub logowania błędów\\n   - SUGESTIA: Można by rozważyć dodanie mechanizmu obsługi błędów, nawet w prostym przepływie sekwencyjnym\\n\\n4. **Analiza elastyczności**:\\n   - OGRANICZENIE: Brak możliwości iteracji lub powtórzenia kroków w przypadku niezadowalających wyników\\n   - OGRANICZENIE: Brak parametryzacji kroków, co mogłoby pozwolić na dostosowanie analizy\\n   - UWAGA: Powyższe ograniczenia są jednak zgodne z prostotą wymaganą w opisie misji\\n\\n5. **Wykorzystanie dostępnych narzędzi**:\\n   - Narzędzie 'check_status' nie zostało wykorzystane, co jest uzasadnione założeniem synchroniczności operacji\\n\\nPodsumowanie: Analizowany workflow jest minimalnym, ale kompletnym rozwiązaniem spełniającym wszystkie wymogi postawione w misji. Jego główną zaletą jest prostota i klarowność. Jedynym zauważalnym brakiem jest nieuwzględnienie obsługi błędów, ale nie było to wymagane w specyfikacji. W kontekście przedstawionych wymagań, rozwiązanie jest optymalne i nie wymaga modyfikacji.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CriticAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"1.  **Analiza Misji:** Celem jest stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kolejność kroków jest ściśle określona: `load_data`, następnie `discover_causality`, a na końcu `validate_model`. Wszystkie operacje są synchroniczne, co upraszcza model, eliminując potrzebę pętli sprawdzających status.\\n2.  **Identyfikacja Węzłów (Nodes):** Na podstawie misji i dostępnych narzędzi definiuję trzy węzły, każdy odpowiadający jednemu krokowi. Nazwy węzłów muszą być unikalne.\\n    *   Węzeł 1: `load_data_node`, implementacja: `load_data`.\\n    *   Węzeł 2: `discover_causality_node`, implementacja: `discover_causality`.\\n    *   Węzeł 3: `validate_model_node`, implementacja: `validate_model`.\\n3.  **Definicja Punktu Wejścia (Entry Point):** Przepływ pracy rozpoczyna się od załadowania danych, więc `entry_point` musi wskazywać na `load_data_node`.\\n4.  **Projektowanie Krawędzi (Edges):** Misja wymaga przepływu sekwencyjnego, co oznacza proste, bezwarunkowe przejścia między węzłami.\\n    *   Krawędź 1: Po zakończeniu `load_data_node` następuje przejście do `discover_causality_node`. Definiuję krawędź `from: \\\"load_data_node\\\"` `to: \\\"discover_causality_node\\\"`.\\n    *   Krawędź 2: Po zakończeniu `discover_causality_node` następuje przejście do `validate_model_node`. Definiuję krawędź `from: \\\"discover_causality_node\\\"` `to: \\\"validate_model_node\\\"`.\\n    *   Krawędź 3: `validate_model_node` jest ostatnim krokiem w przepływie. Definiuję krawędź wychodzącą z tego węzła, która nie prowadzi do żadnego innego węzła (`to: null`), co sygnalizuje koniec całego procesu.\\n5.  **Finalizacja Struktury JSON:** Kompiluję zdefiniowane węzły, krawędzie i punkt wejścia w ostateczną strukturę JSON, upewniając się, że jest ona zgodna z wymaganym schematem.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CasualAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"Dokonuję pogłębionej analizy zaproponowanego przepływu pracy dla weryfikacji modelu przyczynowego, koncentrując się na identyfikacji potencjalnych zagrożeń i optymalizacji:\\n\\n1. **Analiza poprawności formalnej**:\\n   - Plan jest technicznie poprawny - struktura JSON zgodna ze schematem\\n   - Wszystkie wymagane elementy są obecne (entry_point, nodes, edges)\\n   - Nazwy węzłów są odpowiednio unikalne i opisowe\\n\\n2. **Krytyczna ocena architektury**:\\n   - SŁABOŚĆ FUNDAMENTALNA: Plan jest czysto liniowy, bez żadnych mechanizmów walidacji pośrednich wyników\\n   - LUKA BEZPIECZEŃSTWA: Brak kontroli jakości danych po ich załadowaniu - model przyczynowy może być budowany na nieprawidłowych danych\\n   - RYZYKO: Walidacja modelu następuje dopiero po pełnym odkryciu zależności przyczynowych, co może prowadzić do marnowania zasobów, jeśli dane wejściowe są nieodpowiednie\\n\\n3. **Odporność na błędy**:\\n   - KRYTYCZNY BRAK: Całkowity brak obsługi wyjątków na każdym etapie procesu\\n   - ZAGROŻENIE: Awaria któregokolwiek z trzech kroków spowoduje przerwanie całego procesu bez możliwości diagnostyki\\n   - LUKA: Brak mechanizmu zapisywania stanu pośredniego, co uniemożliwia wznowienie procesu po awarii\\n\\n4. **Efektywność przepływu**:\\n   - POTENCJALNA OPTYMALIZACJA: Można rozważyć dodanie etapu wstępnej walidacji danych bezpośrednio po ich załadowaniu\\n   - POTENCJALNA OPTYMALIZACJA: Dodanie pośredniego etapu kontroli jakości po odkryciu zależności przyczynowych\\n\\n5. **Zgodność z wymaganiami biznesowymi**:\\n   - Plan ściśle realizuje sekwencję kroków wymaganą w misji\\n   - Wykorzystuje wyłącznie narzędzia z dostępnej listy\\n   - Zachowuje prostotę i sekwencyjność zgodnie z wymaganiami\\n\\nPodsumowanie: Zaproponowany plan spełnia minimalne wymagania określone w misji, ale zawiera istotne luki w obszarze odporności na błędy i kontroli jakości. W kontekście systemu weryfikacji modeli przyczynowych, te braki mogą prowadzić do niewykrytych błędów w danych lub modelu. Jednakże, biorąc pod uwagę wyraźne wymaganie prostoty i sekwencyjności określone w misji, plan należy uznać za akceptowalny w obecnej formie.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CriticAgent"
-  },
-  {
-    "content": "```json\n{\n  \"thought_process\": \"1.  **Analiza Misji:** Celem jest stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kolejność kroków jest ściśle określona: `load_data`, następnie `discover_causality`, a na końcu `validate_model`. Wszystkie operacje są synchroniczne, co upraszcza model, eliminując potrzebę pętli sprawdzających status.\\n2.  **Identyfikacja Węzłów (Nodes):** Na podstawie misji i dostępnych narzędzi definiuję trzy węzły, każdy odpowiadający jednemu krokowi. Nazwy węzłów muszą być unikalne.\\n    *   Węzeł 1: `load_data_node`, implementacja: `load_data`.\\n    *   Węzeł 2: `discover_causality_node`, implementacja: `discover_causality`.\\n    *   Węzeł 3: `validate_model_node`, implementacja: `validate_model`.\\n3.  **Definicja Punktu Wejścia (Entry Point):** Przepływ pracy rozpoczyna się od załadowania danych, więc `entry_point` musi wskazywać na `load_data_node`.\\n4.  **Projektowanie Krawędzi (Edges):** Misja wymaga przepływu sekwencyjnego, co oznacza proste, bezwarunkowe przejścia między węzłami.\\n    *   Krawędź 1: Po zakończeniu `load_data_node` następuje przejście do `discover_causality_node`. Definiuję krawędź `from: \\\"load_data_node\\\"` `to: \\\"discover_causality_node\\\"`.\\n    *   Krawędź 2: Po zakończeniu `discover_causality_node` następuje przejście do `validate_model_node`. Definiuję krawędź `from: \\\"discover_causality_node\\\"` `to: \\\"validate_model_node\\\"`.\\n    *   Krawędź 3: `validate_model_node` jest ostatnim krokiem w przepływie. Definiuję krawędź wychodzącą z tego węzła, która nie prowadzi do żadnego innego węzła (`to: null`), co sygnalizuje koniec całego procesu.\\n5.  **Finalizacja Struktury JSON:** Kompiluję zdefiniowane węzły, krawędzie i punkt wejścia w ostateczną strukturę JSON, upewniając się, że jest ona zgodna z wymaganym schematem.\",\n  \"entry_point\": \"load_data_node\",\n  \"nodes\": [\n    {\n      \"name\": \"load_data_node\",\n      \"implementation\": \"load_data\"\n    },\n    {\n      \"name\": \"discover_causality_node\",\n      \"implementation\": \"discover_causality\"\n    },\n    {\n      \"name\": \"validate_model_node\",\n      \"implementation\": \"validate_model\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"load_data_node\",\n      \"to\": \"discover_causality_node\"\n    },\n    {\n      \"from\": \"discover_causality_node\",\n      \"to\": \"validate_model_node\"\n    },\n    {\n      \"from\": \"validate_model_node\",\n      \"to\": null\n    }\n  ]\n}\n```",
-    "role": "user",
-    "name": "CasualAgent"
-  }
-]
+  "required": [
+    "thought_process",
+    "entry_point",
+    "nodes",
+    "edges"
+  ],
+  "title": "WorkflowPlan",
+  "type": "object"
+}
+
+```
+
+============================================================
+
+---[ TURA 2: Mówca: DataScientistAgent ]---
+
+--- Myśli Agenta ---
+Cel: Stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kroki: 1. Analiza misji: Misja jasno określa wymaganą sekwencję kroków: `load_data`, następnie `discover_causality` i na końcu `validate_model`. 2. Mapowanie narzędzi: Dostępne narzędzia (`load_data`, `discover_causality`, `validate_model`) bezpośrednio odpowiadają wymaganym krokom. Narzędzie `check_validation` nie jest konieczne do realizacji prostego, sekwencyjnego przepływu, więc zostaje pominięte, aby nie komplikować planu. 3. Definicja węzłów: Tworzę trzy odrębne węzły, po jednym dla każdego kroku z misji. Każdy węzeł będzie miał unikalną nazwę i będzie mapowany na odpowiednią implementację z dostępnych narzędzi. 4. Definicja krawędzi: Definiuję krawędzie, aby połączyć węzły w liniowej kolejności. Pierwsza krawędź łączy `load_data` z `discover_causality`. Druga łączy `discover_causality` z `validate_model`. Ostatni węzeł nie ma krawędzi wychodzącej, co oznacza koniec przepływu. 5. Punkt wejścia: Przepływ pracy musi się od czegoś zacząć. Zgodnie z logiką i misją, punktem wejścia jest węzeł odpowiedzialny za ładowanie danych.
+
+--- Oficjalna Odpowiedź ---
+{
+  "entry_point": "load_data_node",
+  "nodes": [
+    {
+      "name": "load_data_node",
+      "implementation": "load_data"
+    },
+    {
+      "name": "discover_causality_node",
+      "implementation": "discover_causality"
+    },
+    {
+      "name": "validate_model_node",
+      "implementation": "validate_model"
+    }
+  ],
+  "edges": [
+    {
+      "from": "load_data_node",
+      "to": "discover_causality_node",
+      "condition": null,
+      "routes": null
+    },
+    {
+      "from": "discover_causality_node",
+      "to": "validate_model_node",
+      "condition": null,
+      "routes": null
+    }
+  ]
+}
+
+```
+
+============================================================
+
+---[ TURA 3: Mówca: CriticAgent ]---
+
+--- Myśli Agenta ---
+Cel: Stworzenie prostego, sekwencyjnego przepływu pracy do weryfikacji modelu przyczynowego. Kroki: 1. Analiza misji: Misja jasno określa wymaganą sekwencję kroków: `load_data`, następnie `discover_causality` i na końcu `validate_model`. 2. Mapowanie narzędzi: Dostępne narzędzia (`load_data`, `discover_causality`, `validate_model`) bezpośrednio odpowiadają wymaganym krokom. Narzędzie `check_validation` nie jest konieczne do realizacji prostego, sekwencyjnego przepływu, więc zostaje pominięte, aby nie komplikować planu. 3. Definicja węzłów: Tworzę trzy odrębne węzły, po jednym dla każdego kroku z misji. Każdy węzeł będzie miał unikalną nazwę i będzie mapowany na odpowiednią implementację z dostępnych narzędzi. 4. Definicja krawędzi: Definiuję krawędzie, aby połączyć węzły w liniowej kolejności. Pierwsza krawędź łączy `load_data` z `discover_causality`. Druga łączy `discover_causality` z `validate_model`. Ostatni węzeł nie ma krawędzi wychodzącej, co oznacza koniec przepływu. 5. Punkt wejścia: Przepływ pracy musi się od czegoś zacząć. Zgodnie z logiką i misją, punktem wejścia jest węzeł odpowiedzialny za ładowanie danych.
+
+--- Oficjalna Odpowiedź ---
+{
+  "entry_point": "load_data_node",
+  "nodes": [
+    {
+      "name": "load_data_node",
+      "implementation": "load_data"
+    },
+    {
+      "name": "discover_causality_node",
+      "implementation": "discover_causality"
+    },
+    {
+      "name": "validate_model_node",
+      "implementation": "validate_model"
+    }
+  ],
+  "edges": [
+    {
+      "from": "load_data_node",
+      "to": "discover_causality_node",
+      "condition": null,
+      "routes": null
+    },
+    {
+      "from": "discover_causality_node",
+      "to": "validate_model_node",
+      "condition": null,
+      "routes": null
+    }
+  ]
+}
+
+PLAN_ZATWIERDZONY
+
+============================================================
+

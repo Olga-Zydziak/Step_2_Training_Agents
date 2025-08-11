@@ -155,6 +155,72 @@ Jesteś "Oracle", elitarnym analitykiem AI specjalizującym się w strategii, an
 """
 
 
+SPEC_CRITIC_AEGIS = """
+## SPECIALIZATION: AEGIS, THE UNYIELDING GUARDIAN OF QUALITY
+Twoją wyspecjalizowaną funkcją jest "Aegis" – tarcza chroniąca system przed błędami. Twoim celem jest aktywne wzmacnianie i hartowanie każdego planu poprzez precyzyjną, konstruktywną analizę.
+
+### ADDITIONAL CORE PRINCIPLES (ROLE-SPECIFIC)
+
+1.  **Deep Analysis vs. Superficial Validation:** Nigdy nie akceptuj planu tylko dlatego, że "spełnia minimalne wymagania". Zawsze szukaj ukrytych wad i potencjalnych ryzyk.
+2.  **Absolute Adherence to Format:** Twoja odpowiedź ZAWSZE musi być poprawnym obiektem JSON. Musisz także bezwzględnie przestrzegać ZŁOTEJ ZASADY ZAKOŃCZENIA PRACY.
+
+### STEP-BY-STEP THOUGHT PROCESS
+1.  **Formal Verification:** Sprawdzenie poprawności składni JSON i zgodności ze schematem.
+2.  **Logical & Mission-Based Analysis:** Weryfikacja zgodności z celem z `<MISSION>`.
+3.  **Architectural Assessment (Quality Heuristics):** Ocena planu pod kątem prostoty, odporności na błędy, efektywności i czytelności.
+4.  **Verdict Formulation:** Podjęcie ostatecznej decyzji i wybór jednego z dwóch trybów działania.
+
+### TWO MODES OF OPERATION
+#### Mode 1: FLAW DETECTED (CORRECTION NEEDED)
+Jeśli plan ma wadę, opisz ją i zasugeruj rozwiązanie.
+
+#### Mode 2: FINAL PLAN (APPROVAL)
+Jeśli plan jest bezbłędny, zatwierdź go i zakończ pracę.
+
+### THE GOLDEN RULE OF TERMINATION
+**JEŚLI I TYLKO JEŚLI ZATWIERDZASZ PLAN (Tryb 2), MUSISZ dodać do swojej odpowiedzi, poza blokiem JSON, kluczową frazę ostatecznego zatwierdzenia: `PLAN_ZATWIERDZONY`**
+"""
+
+SPEC_ROUTER = """
+## SPECIALIZATION: TEAM COMPOSITION STRATEGIST
+Twoją specjalizacją jest strategiczna analiza wymagań misji w celu skomponowania optymalnego zespołu agentów-ekspertów. Działasz jak dyrektor castingu, dobierając odpowiednie talenty do zadania. Twoja decyzja musi być oparta wyłącznie na opisie misji i charakterystyce dostępnych agentów.
+"""
+
+
+SPEC_ARCHITECT = """
+## SPECIALIZATION: WORKFLOW ARCHITECT
+Twoją specjalizacją jest tłumaczenie wysokopoziomowych misji na precyzyjne, maszynowo-czytelne plany przepływu pracy (workflow) w formacie JSON. Jesteś głównym inżynierem systemu.
+
+### ADDITIONAL CORE PRINCIPLES (ROLE-SPECIFIC)
+
+1.  **Modularity over Monoliths:** Projektuj przepływy jako serię małych, wyspecjalizowanych kroków (węzłów), które można łatwo zrozumieć i testować.
+2.  **Plan for Failure:** Zawsze zastanów się, co może pójść nie tak. Nawet jeśli misja wymaga prostego przepływu, w procesie myślowym odnotuj potencjalne punkty awarii.
+3.  **Clarity and Readability:** Nazwy węzłów i struktura grafu muszą być intuicyjne i łatwe do zrozumienia dla innego inżyniera.
+"""
+
+
+SPEC_CAUSAL_EXPERT = """
+## SPECIALIZATION: CAUSAL MODELING ARCHITECT
+Twoim zadaniem jest projektowanie wysokopoziomowych planów przepływu pracy (`WorkflowPlan`) dla modeli przyczynowo-skutkowych. Koncentrujesz się na logicznej sekwencji kroków, a nie na szczegółach implementacji.
+
+### ADDITIONAL CORE PRINCIPLES (ROLE-SPECIFIC)
+1.  **Logic First:** Skup się na poprawnym uporządkowaniu głównych etapów (np. `load_data` -> `discover_causality` -> `validate_model`).
+2.  **Simplicity:** Twój plan powinien być tak prosty i przejrzysty, jak to tylko możliwe. Unikaj zbędnych, skomplikowanych ścieżek, jeśli misja tego nie wymaga.
+3.  **Clarity:** Każdy węzeł i krawędź w Twoim planie musi mieć jasny i zrozumiały cel.
+"""
+
+SPEC_DATA_ANALYST = """
+## SPECIALIZATION: DATA PREPARATION PLANNER
+Twoim zadaniem jest tworzenie szczegółowych, technicznych planów przepływu pracy (`WorkflowPlan`) dotyczących czyszczenia, transformacji i walidacji danych.
+
+### ADDITIONAL CORE PRINCIPLES (ROLE-SPECIFIC)
+1.  **Data-Driven Decisions:** Każdy krok w Twoim planie musi wynikać bezpośrednio z analizy schematu danych (np. nazw i typów kolumn).
+2.  **Granularity:** Dziel złożone operacje na mniejsze, atomowe kroki. Zamiast jednego węzła "przetwórz dane", stwórz osobne węzły dla "imputacji braków", "korekty typów" i "inżynierii cech".
+3.  **Justification:** W polu `thought_process` krótko uzasadnij, dlaczego dany krok jest potrzebny (np. "Kolumna 'X' ma 30% braków, dlatego dodaję węzeł imputacji medianą").
+"""
+
+
+
 
 class PromptConfig(BaseModel):
     """Generyczna struktura do konfigurowania dowolnego promptu."""
@@ -182,32 +248,121 @@ class PromptEngine:
 
     # --- Metody do tworzenia gotowych konfiguracji dla Fabryki Agentów ---
 
+    
+    
+    @staticmethod
+    def for_critic() -> PromptConfig:
+        """Tworzy konfigurację promptu dla Agenta-Krytyka 'Aegis'."""
+
+        # 1. Budujemy kompletny system_prompt dla Krytyka
+        system_prompt_for_critic = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_CRITIC_AEGIS}"
+
+        # 2. "Pakujemy" wszystko do obiektu PromptConfig
+        return PromptConfig(
+            system_prompt=system_prompt_for_critic,
+            task_description="",  # Zadanie jest wbudowane w system_prompt
+            context={},            # Kontekst to historia czatu, nic więcej nie potrzeba
+            output_schema=WorkflowPlan  # Schemat jest potrzebny do walidacji
+        )
+
+    
     @staticmethod
     def for_router(mission: str, agent_library_descriptions: str) -> PromptConfig:
         """Tworzy konfigurację promptu dla Agenta-Rutera."""
-        return PromptConfig(
-            system_prompt=SYSTEM_PROMPT_ANALYST,
-            task_description="Twoim zadaniem jest zmontowanie idealnego zespołu (1-2 planistów, 1 krytyk) do przeprowadzenia burzy mózgów na zadany temat.",
-            context={
-                "mission": mission,
-                "available_experts": agent_library_descriptions
-            },
-            output_schema=AgentSelection
-        )
 
+        # Budujemy kompletny system_prompt, łącząc fundament ze specjalizacją
+        system_prompt_for_router = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_ROUTER}"
+
+        # Opis zadania, które agent ma wykonać
+        task_description = "Na podstawie poniższej misji i listy dostępnych ekspertów, dobierz optymalny zespół składający się z 1-2 planistów oraz 1 krytyka."
+
+        # Kontekst jest dynamiczny i niezbędny do wykonania zadania
+        context = {
+            "mission": mission,
+            "available_experts": agent_library_descriptions
+        }
+
+        # Zwracamy gotowy do użycia "pakiet" konfiguracyjny
+        return PromptConfig(
+            system_prompt=system_prompt_for_router,
+            task_description=task_description,
+            context=context,
+            output_schema=AgentSelection  # Agent ma zwrócić obiekt zgodny z tym schematem
+        )
+    
+    
+    
     @staticmethod
     def for_architect(mission: str, node_library_descriptions: str) -> PromptConfig:
-        """Tworzy konfigurację promptu dla Agenta-Architekta, który ma stworzyć plan grafu."""
-        return PromptConfig(
-            system_prompt=SYSTEM_PROMPT_ANALYST,
-            task_description="Twoim zadaniem jest zaprojektowanie kompletnego i odpornego na błędy przepływu pracy (workflow) w formacie JSON, który realizuje zadaną misję, korzystając z dostępnych narzędzi.",
-            context={
-                "mission": mission,
-                "available_tools": node_library_descriptions
-            },
-            output_schema=WorkflowPlan
-        )
+        """Tworzy konfigurację promptu dla Agenta-Architekta."""
 
+        # Budujemy kompletny system_prompt
+        system_prompt_for_architect = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_ARCHITECT}"
+
+        # Opis zadania do wykonania
+        task_description = "Zaprojektuj kompletny i odporny na błędy przepływ pracy (workflow) w formacie JSON, który realizuje zadaną misję, korzystając z dostępnych narzędzi."
+
+        # Kontekst jest niezbędny do zaprojektowania planu
+        context = {
+            "mission": mission,
+            "available_tools": node_library_descriptions
+        }
+
+        # Zwracamy gotowy do użycia "pakiet" konfiguracyjny
+        return PromptConfig(
+            system_prompt=system_prompt_for_architect,
+            task_description=task_description,
+            context=context,
+            output_schema=WorkflowPlan # Agent musi zwrócić obiekt `WorkflowPlan`
+        )
+    @staticmethod
+    def for_causal_expert(mission: str, node_library_descriptions: str) -> PromptConfig:
+        """Tworzy konfigurację promptu dla Agenta-Eksperta od Modeli Przyczynowych."""
+
+        # Łączymy fundament "Oracle" ze specjalizacją
+        system_prompt = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_CAUSAL_EXPERT}"
+
+        # Opis zadania, które agent ma wykonać
+        task_description = "Zaprojektuj wysokopoziomowy, logiczny plan przepływu pracy (`WorkflowPlan`) dla modelu przyczynowo-skutkowego, opierając się na misji i dostępnych narzędziach."
+
+        # Kontekst, którego potrzebuje do wykonania zadania
+        context = {
+            "mission": mission,
+            "available_tools": node_library_descriptions
+        }
+
+        # Zwracamy gotowy do użycia "pakiet" konfiguracyjny
+        return PromptConfig(
+            system_prompt=system_prompt,
+            task_description=task_description,
+            context=context,
+            output_schema=WorkflowPlan  # Oczekiwany format wyjściowy to plan grafu
+        )
+    
+    
+    @staticmethod
+    def for_data_analyst(mission: str, node_library_descriptions: str) -> PromptConfig:
+        """Tworzy konfigurację promptu dla Agenta-Analityka Danych."""
+
+        # Łączymy fundament "Oracle" ze specjalizacją
+        system_prompt = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_DATA_ANALYST}"
+
+        # Opis zadania, które agent ma wykonać
+        task_description = "Zaprojektuj szczegółowy, techniczny plan przepływu pracy (`WorkflowPlan`) dotyczący czyszczenia i walidacji danych, opierając się na misji i dostępnych narzędziach."
+
+        # Kontekst, którego potrzebuje do wykonania zadania
+        context = {
+            "mission": mission,
+            "available_tools": node_library_descriptions
+        }
+
+        # Zwracamy gotowy do użycia "pakiet" konfiguracyjny
+        return PromptConfig(
+            system_prompt=system_prompt,
+            task_description=task_description,
+            context=context,
+            output_schema=WorkflowPlan  # Ten agent również ma za zadanie stworzyć plan grafu
+        )
 
 
 --- FILE: dynamic_graph/main_graph_functions.py ---
@@ -275,9 +430,7 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
     )
     manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=main_agent_configuration)
     
-    # --- Krok 3: Stworzenie Scenariusza i Uruchomienie "Burzy Mózgów" ---
-    # Używamy `PromptEngine` do zbudowania precyzyjnego zadania dla zespołu.
-    # W realnym systemie `node_descriptions` byłyby ładowane z biblioteki narzędzi.
+   
     node_descriptions = "Dostępne narzędzia: ['load_data', 'discover_causality', 'validate_model', 'check_status']"
     architect_config = PromptEngine.for_architect(mission, node_descriptions)
     architect_prompt = PromptEngine.build(architect_config)
@@ -293,14 +446,20 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
         json.dump(groupchat.messages, f, indent=2, ensure_ascii=False)
     print(f"\nINFO: Pełen log dyskusji zapisano w {LOG_FILE_PATH}")
 
-    # Wyodrębniamy i walidujemy finalny plan
-    final_message = groupchat.messages[-1].get("content", "")
-    if "PLAN_ZATWIERDZONY" in final_message:
+    final_plan_message = None
+    # Przeglądamy wiadomości od końca, aby znaleźć ostatnią wiadomość od krytyka z zatwierdzeniem
+    for msg in reversed(groupchat.messages):
+        content = msg.get("content", "")
+        if "PLAN_ZATWIERDZONY" in content and msg.get("name") == critic.name:
+            final_plan_message = content
+            break
+
+    if final_plan_message:
         try:
             # Niezawodne wyodrębnianie JSON-a, nawet jeśli LLM dodał dodatkowy tekst
-            json_str = final_message[final_message.find('{'):final_message.rfind('}')+1]
+            json_str = final_plan_message[final_plan_message.find('{'):final_plan_message.rfind('}')+1]
             plan_dict = json.loads(json_str)
-            
+
             validated_plan = WorkflowPlan.model_validate(plan_dict)
             print("\n--- SUKCES: Plan został pomyślnie wygenerowany i zwalidowany. ---")
             return validated_plan
@@ -513,7 +672,7 @@ class CriticAgent(ConversableAgent):
 
 --- FILE: agents/agents_library.py ---
 
-from prompts import SYSTEM_PROMPT_ANALYST
+from prompts import *
 from config import PROJECT_ID, LOCATION, MEMORY_ENGINE_DISPLAY_NAME, INPUT_FILE_PATH,MAIN_AGENT,CRITIC_MODEL,CODE_MODEL, API_TYPE_GEMINI,API_TYPE_SONNET, ANTHROPIC_API_KEY,basic_config_agent
 from .agents import *
 # --- Konfiguracja czatu grupowego ---
@@ -522,10 +681,22 @@ main_agent_configuration={"cache_seed": 42,"seed": 42,"temperature": 0.0,
 critic_agent_configuration ={"cache_seed": 42,"seed": 42,"temperature": 0.0,
                         "config_list": basic_config_agent(api_key=ANTHROPIC_API_KEY,agent_name=CRITIC_MODEL, api_type=API_TYPE_SONNET)}
 
+
+
+casual_agent_config = PromptEngine.for_causal_expert(mission, node_descriptions)
+casual_prompt = PromptEngine.build(casual_agent_config)
+
+
+
+data_scientist_config = PromptEngine.for_data_analyst(mission, node_descriptions)
+data_scientist_prompt = PromptEngine.build(data_scientist_config)
+
+
 #---WYWOŁANIE AGENTÓW
-casual_agent = CasualAgent(llm_config=main_agent_configuration, prompt=SYSTEM_PROMPT_ANALYST + "\nSpecjalizacja: Tworzenie planów dla modeli przyczynowych.")
-data_scientist_agent = DataScientistAgent(llm_config=main_agent_configuration, prompt=SYSTEM_PROMPT_ANALYST + "\nSpecjalizacja: Plany czyszczenia i walidacji danych.") # 
-critic_agent = CriticAgent(llm_config=critic_agent_configuration, prompt=SYSTEM_PROMPT_ANALYST + "\nSpecjalizacja: Konstruktywna krytyka planów.")
+casual_agent = CasualAgent(llm_config=main_agent_configuration, prompt=casual_prompt)
+
+data_scientist_agent = DataScientistAgent(llm_config=main_agent_configuration, prompt=data_scientist_prompt)
+critic_agent = CriticAgent(llm_config=critic_agent_configuration, prompt=critic_prompt)
 
 
 

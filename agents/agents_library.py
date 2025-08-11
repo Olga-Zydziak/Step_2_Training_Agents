@@ -1,4 +1,9 @@
-from prompts import *
+from prompts import (
+    SYSTEM_PROMPT_ANALYST,
+    SPEC_CAUSAL_EXPERT,
+    SPEC_DATA_ANALYST,
+    SPEC_CRITIC_AEGIS  # Użyjmy naszej najlepszej wersji dla krytyka!
+)
 from config import PROJECT_ID, LOCATION, MEMORY_ENGINE_DISPLAY_NAME, INPUT_FILE_PATH,MAIN_AGENT,CRITIC_MODEL,CODE_MODEL, API_TYPE_GEMINI,API_TYPE_SONNET, ANTHROPIC_API_KEY,basic_config_agent
 from .agents import *
 # --- Konfiguracja czatu grupowego ---
@@ -8,21 +13,17 @@ critic_agent_configuration ={"cache_seed": 42,"seed": 42,"temperature": 0.0,
                         "config_list": basic_config_agent(api_key=ANTHROPIC_API_KEY,agent_name=CRITIC_MODEL, api_type=API_TYPE_SONNET)}
 
 
+casual_expert_persona = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_CAUSAL_EXPERT}"
+data_scientist_persona = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_DATA_ANALYST}"
+critic_persona = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_CRITIC_AEGIS}"
 
-casual_agent_config = PromptEngine.for_causal_expert(mission, node_descriptions)
-casual_prompt = PromptEngine.build(casual_agent_config)
-
-
-
-data_scientist_config = PromptEngine.for_data_analyst(mission, node_descriptions)
-data_scientist_prompt = PromptEngine.build(data_scientist_config)
 
 
 #---WYWOŁANIE AGENTÓW
-casual_agent = CasualAgent(llm_config=main_agent_configuration, prompt=casual_prompt)
+casual_agent = CasualAgent(llm_config=main_agent_configuration, prompt=casual_expert_persona)
 
-data_scientist_agent = DataScientistAgent(llm_config=main_agent_configuration, prompt=data_scientist_prompt)
-critic_agent = CriticAgent(llm_config=critic_agent_configuration, prompt=critic_prompt)
+data_scientist_agent = DataScientistAgent(llm_config=main_agent_configuration, prompt=data_scientist_persona)
+critic_agent = CriticAgent(llm_config=critic_agent_configuration, prompt=critic_persona)
 
 
 

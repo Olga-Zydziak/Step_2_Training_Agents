@@ -51,7 +51,7 @@ MAX_CORRECTION_ATTEMPTS=5
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_API_KEY"] = LANGCHAIN_API_KEY
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
-os.environ["LANGCHAIN_PROJECT"] = "Projekt Multi-Agent-System v9.0-Integrated"
+os.environ["LANGCHAIN_PROJECT"] = "Projekt Multi-Agent-System Dynamic-graphs"
 os.environ["ANTHROPIC_API_KEY"] =ANTHROPIC_API_KEY
 
 

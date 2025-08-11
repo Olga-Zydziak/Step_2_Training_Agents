@@ -49,9 +49,19 @@ def select_team(user_query: str, agent_library: Dict, router_llm_config: Dict) -
     """Dynamicznie wybiera zespół, używając uniwersalnej funkcji do odpowiedzi strukturalnych."""
     print("--- RUTER AGENTÓW: Uruchamiam uniwersalny wybór zespołu... ---")
     
-    agent_descriptions = "\n".join(
-        [f"- {name}: {agent.system_message.split('Specjalizacja:')[1].strip()}" for name, agent in agent_library.items()]
-    )
+    agent_descriptions_list = []
+    for name, agent in agent_library.items():
+        try:
+            # Dzielimy po nowym, ustrukturyzowanym nagłówku
+            specialization_text = agent.system_message.split("## SPECIALIZATION:")[1]
+            # Bierzemy tylko pierwszą linijkę opisu, aby był zwięzły
+            description = specialization_text.strip().split('\n')[0]
+            agent_descriptions_list.append(f"- {name}: {description}")
+        except IndexError:
+            # Zabezpieczenie, jeśli jakiś prompt nie ma tej sekcji
+            agent_descriptions_list.append(f"- {name}: Brak opisu specjalizacji.")
+
+    agent_descriptions = "\n".join(agent_descriptions_list)
     # Tworzymy konfigurację i budujemy prompt tak jak poprzednio
     router_config = PromptEngine.for_router(user_query, agent_descriptions)
     router_prompt = PromptEngine.build(router_config)
