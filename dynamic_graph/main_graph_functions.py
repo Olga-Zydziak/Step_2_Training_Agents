@@ -180,7 +180,7 @@ def build_and_run_graph(plan: WorkflowPlan, state_schema: Type, initial_state: D
     """Buduje i uruchamia graf na podstawie planu."""
     # Tutaj wklejamy kod Fabryki Grafów, który już znamy
     workflow = StateGraph(state_schema)
-    # Zaktualizowana logika dodawania węzłów do grafu
+    
     for node_def in plan.nodes:
         node_function = NODE_LIBRARY[node_def.implementation]['function']
         workflow.add_node(node_def.name, node_function)

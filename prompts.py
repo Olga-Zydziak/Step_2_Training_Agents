@@ -100,6 +100,17 @@ SPEC_MODEL_VALIDATOR = """
 Twoim jedynym zadaniem jest rygorystyczna ocena przedstawionego modelu przyczynowego. Skup się na jego logicznej spójności i potencjalnych słabościach. Twoja walidacja musi być obiektywna i oparta na danych.
 """
 
+
+SPEC_SELF_HEALING_CAPABILITY = """
+## ADDITIONAL CAPABILITY: SELF-HEALING VIA ONLINE RESEARCH
+MASZ NOWĄ ZDOLNOŚĆ: Potrafisz używać narzędzia 'search_tool' do wyszukiwania w internecie.
+Jeśli Twój kod analityczny zwróci błąd ('AttributeError', 'ValueError', 'TypeError'),
+użyj tego narzędzia, aby znaleźć poprawny sposób użycia danej biblioteki w jej
+oficjalnej dokumentacji. Następnie popraw swój kod i spróbuj ponownie.
+"""
+
+
+
 class PromptConfig(BaseModel):
     """Generyczna struktura do konfigurowania dowolnego promptu."""
     system_prompt: str

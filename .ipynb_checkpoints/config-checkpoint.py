@@ -39,6 +39,7 @@ API_TYPE_SONNET = str(ApiType.ANTHROPIC)
 
 LANGCHAIN_API_KEY = get_secret(PROJECT_ID,"LANGCHAIN_API_KEY")
 ANTHROPIC_API_KEY=get_secret(PROJECT_ID,"ANTHROPIC_API_KEY")
+TAVILY_API_KEY = get_secret(PROJECT_ID,"TAVILY_API_KEY")
 
 MEMORY_ENGINE_DISPLAY_NAME="memory-gamma-way"
 
@@ -53,7 +54,7 @@ os.environ["LANGCHAIN_API_KEY"] = LANGCHAIN_API_KEY
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
 os.environ["LANGCHAIN_PROJECT"] = "Projekt Multi-Agent-System Dynamic-graphs"
 os.environ["ANTHROPIC_API_KEY"] =ANTHROPIC_API_KEY
-
+os.environ["TAVILY_API_KEY"] = TAVILY_API_KEY
 
 #---cache-------
 langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
