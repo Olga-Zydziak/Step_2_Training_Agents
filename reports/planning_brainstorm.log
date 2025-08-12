@@ -124,41 +124,87 @@
 
 ============================================================
 
----[ TURA 2: Mówca: DataScientistAgent ]---
+---[ TURA 2: Mówca: Ekspert_Przyczynowosci ]---
 
 --- Myśli Agenta ---
-Krok 1: Analiza misji. Misja wymaga stworzenia prostego, sekwencyjnego przepływu pracy składającego się z trzech kroków: wczytanie danych, odkrycie przyczynowości i walidacja modelu.
-Krok 2: Identyfikacja węzłów. Na podstawie misji definiuję trzy węzły odpowiadające wymaganym krokom.
-Krok 3: Mapowanie węzłów na narzędzia. Każdy zdefiniowany węzeł jest mapowany na odpowiednie narzędzie z listy AVAILABLE_TOOLS. Węzeł 'load_data_node' użyje narzędzia 'load_data', 'discover_causality_node' użyje 'discover_causality', a 'validate_model_node' użyje 'validate_model'.
-Krok 4: Definicja punktu wejścia. Przepływ pracy rozpoczyna się od wczytania danych, więc 'load_data_node' jest punktem wejścia (entry_point).
-Krok 5: Definicja krawędzi. Aby stworzyć sekwencyjny przepływ, definiuję dwie krawędzie: pierwsza łączy 'load_data_node' z 'discover_causality_node', a druga łączy 'discover_causality_node' z 'validate_model_node'. Ponieważ przepływ jest prosty i synchroniczny, nie ma potrzeby stosowania warunków ani rozgałęzień.
-Krok 6: Finalizacja planu. Składam wszystkie elementy w ostateczny obiekt JSON WorkflowPlan zgodnie z wymaganym schematem.
+1. **Analiza Misji:** Kluczowym wymaganiem jest stworzenie ODPORNEGO NA BŁĘDY przepływu pracy. Główne kroki to `load_data`, `discover_causality` i `validate_model`. Węzeł `discover_causality` jest ryzykowny i wymaga specjalnego traktowania: po jego wykonaniu musi nastąpić weryfikacja błędu. W przypadku błędu, proces jest kierowany do `universal_debugger`, a następnie pętla wraca, by ponowić próbę `discover_causality`. W przypadku sukcesu, proces kontynuuje do `validate_model`.
+
+2. **Identyfikacja Węzłów:** Na podstawie misji i dostępnych narzędzi identyfikuję następujące niezbędne węzły:
+    - `node_load_data` (implementacja: `load_data`): Punkt startowy, wczytanie danych.
+    - `node_discover_causality` (implementacja: `discover_causality`): Ryzykowny krok odkrywania przyczynowości.
+    - `node_check_discovery_error` (implementacja: `check_for_error`): Węzeł decyzyjny, który sprawdzi, czy poprzedni krok się powiódł.
+    - `node_debug_discovery` (implementacja: `universal_debugger`): Węzeł obsługi błędu.
+    - `node_validate_model` (implementacja: `validate_model`): Kolejny krok sekwencyjny po udanym odkryciu przyczynowości.
+    - `node_generate_report` (implementacja: `generate_explainability_report`): Logiczny krok końcowy, podsumowujący cały proces.
+
+3. **Projektowanie Przepływu (Krawędzie):**
+    - **Wejście:** Proces musi się zacząć od wczytania danych, więc `entry_point` to `node_load_data`.
+    - **Sekwencja Podstawowa:** `node_load_data` -> `node_discover_causality`.
+    - **Obsługa Błędu (Rozgałęzienie):** Po `node_discover_causality` następuje `node_check_discovery_error`. Ten węzeł jest warunkowy:
+        - Jeśli `check_for_error` zwróci `true` (wystąpił błąd), przepływ idzie do `node_debug_discovery`.
+        - Jeśli `check_for_error` zwróci `false` (sukces), przepływ idzie do `node_validate_model`.
+    - **Pętla Naprawcza:** Po zakończeniu pracy `node_debug_discovery`, przepływ musi wrócić, aby ponowić próbę, czyli kieruje się z powrotem do `node_discover_causality`.
+    - **Finalizacja:** Po pomyślnej walidacji w `node_validate_model`, proces przechodzi do generowania raportu w `node_generate_report`, co stanowi jego zakończenie.
+
+4. **Finalna Struktura JSON:** Kompiluję zidentyfikowane węzły i krawędzie w wymaganym formacie JSON, upewniając się, że `entry_point` jest poprawnie zdefiniowany, a wszystkie krawędzie, w tym warunkowa i pętla, są precyzyjnie opisane.
 
 --- Oficjalna Odpowiedź ---
 {
-  "entry_point": "load_data_node",
+  "entry_point": "node_load_data",
   "nodes": [
     {
-      "name": "load_data_node",
+      "name": "node_load_data",
       "implementation": "load_data"
     },
     {
-      "name": "discover_causality_node",
+      "name": "node_discover_causality",
       "implementation": "discover_causality"
     },
     {
-      "name": "validate_model_node",
+      "name": "node_check_discovery_error",
+      "implementation": "check_for_error"
+    },
+    {
+      "name": "node_debug_discovery",
+      "implementation": "universal_debugger"
+    },
+    {
+      "name": "node_validate_model",
       "implementation": "validate_model"
+    },
+    {
+      "name": "node_generate_report",
+      "implementation": "generate_explainability_report"
     }
   ],
   "edges": [
     {
-      "from": "load_data_node",
-      "to": "discover_causality_node"
+      "from": "node_load_data",
+      "to": "node_discover_causality"
     },
     {
-      "from": "discover_causality_node",
-      "to": "validate_model_node"
+      "from": "node_discover_causality",
+      "to": "node_check_discovery_error"
+    },
+    {
+      "from": "node_check_discovery_error",
+      "condition": "check_for_error",
+      "routes": {
+        "true": "node_debug_discovery",
+        "false": "node_validate_model"
+      }
+    },
+    {
+      "from": "node_debug_discovery",
+      "to": "node_discover_causality"
+    },
+    {
+      "from": "node_validate_model",
+      "to": "node_generate_report"
+    },
+    {
+      "from": "node_generate_report",
+      "to": null
     }
   ]
 }
@@ -167,41 +213,87 @@ Krok 6: Finalizacja planu. Składam wszystkie elementy w ostateczny obiekt JSON 
 
 ============================================================
 
----[ TURA 3: Mówca: CriticAgent ]---
+---[ TURA 3: Mówca: Krytyk_Jakosci ]---
 
 --- Myśli Agenta ---
-Krok 1: Analiza misji. Misja wymaga stworzenia prostego, sekwencyjnego przepływu pracy składającego się z trzech kroków: wczytanie danych, odkrycie przyczynowości i walidacja modelu.
-Krok 2: Identyfikacja węzłów. Na podstawie misji definiuję trzy węzły odpowiadające wymaganym krokom.
-Krok 3: Mapowanie węzłów na narzędzia. Każdy zdefiniowany węzeł jest mapowany na odpowiednie narzędzie z listy AVAILABLE_TOOLS. Węzeł 'load_data_node' użyje narzędzia 'load_data', 'discover_causality_node' użyje 'discover_causality', a 'validate_model_node' użyje 'validate_model'.
-Krok 4: Definicja punktu wejścia. Przepływ pracy rozpoczyna się od wczytania danych, więc 'load_data_node' jest punktem wejścia (entry_point).
-Krok 5: Definicja krawędzi. Aby stworzyć sekwencyjny przepływ, definiuję dwie krawędzi: pierwsza łączy 'load_data_node' z 'discover_causality_node', a druga łączy 'discover_causality_node' z 'validate_model_node'. Ponieważ przepływ jest prosty i synchroniczny, nie ma potrzeby stosowania warunków ani rozgałęzień.
-Krok 6: Finalizacja planu. Składam wszystkie elementy w ostateczny obiekt JSON WorkflowPlan zgodnie z wymaganym schematem.
+1. **Analiza Misji:** Kluczowym wymaganiem jest stworzenie ODPORNEGO NA BŁĘDY przepływu pracy. Główne kroki to `load_data`, `discover_causality` i `validate_model`. Węzeł `discover_causality` jest ryzykowny i wymaga specjalnego traktowania: po jego wykonaniu musi nastąpić weryfikacja błędu. W przypadku błędu, proces jest kierowany do `universal_debugger`, a następnie pętla wraca, by ponowić próbę `discover_causality`. W przypadku sukcesu, proces kontynuuje do `validate_model`.
+
+2. **Identyfikacja Węzłów:** Na podstawie misji i dostępnych narzędzi identyfikuję następujące niezbędne węzły:
+    - `node_load_data` (implementacja: `load_data`): Punkt startowy, wczytanie danych.
+    - `node_discover_causality` (implementacja: `discover_causality`): Ryzykowny krok odkrywania przyczynowości.
+    - `node_check_discovery_error` (implementacja: `check_for_error`): Węzeł decyzyjny, który sprawdzi, czy poprzedni krok się powiódł.
+    - `node_debug_discovery` (implementacja: `universal_debugger`): Węzeł obsługi błędu.
+    - `node_validate_model` (implementacja: `validate_model`): Kolejny krok sekwencyjny po udanym odkryciu przyczynowości.
+    - `node_generate_report` (implementacja: `generate_explainability_report`): Logiczny krok końcowy, podsumowujący cały proces.
+
+3. **Projektowanie Przepływu (Krawędzie):**
+    - **Wejście:** Proces musi się zacząć od wczytania danych, więc `entry_point` to `node_load_data`.
+    - **Sekwencja Podstawowa:** `node_load_data` -> `node_discover_causality`.
+    - **Obsługa Błędu (Rozgałęzienie):** Po `node_discover_causality` następuje `node_check_discovery_error`. Ten węzeł jest warunkowy:
+        - Jeśli `check_for_error` zwróci `true` (wystąpił błąd), przepływ idzie do `node_debug_discovery`.
+        - Jeśli `check_for_error` zwróci `false` (sukces), przepływ idzie do `node_validate_model`.
+    - **Pętla Naprawcza:** Po zakończeniu pracy `node_debug_discovery`, przepływ musi wrócić, aby ponowić próbę, czyli kieruje się z powrotem do `node_discover_causality`.
+    - **Finalizacja:** Po pomyślnej walidacji w `node_validate_model`, proces przechodzi do generowania raportu w `node_generate_report`, co stanowi jego zakończenie.
+
+4. **Finalna Struktura JSON:** Kompiluję zidentyfikowane węzły i krawędzie w wymaganym formacie JSON, upewniając się, że `entry_point` jest poprawnie zdefiniowany, a wszystkie krawędzie, w tym warunkowa i pętla, są precyzyjnie opisane.
 
 --- Oficjalna Odpowiedź ---
 {
-  "entry_point": "load_data_node",
+  "entry_point": "node_load_data",
   "nodes": [
     {
-      "name": "load_data_node",
+      "name": "node_load_data",
       "implementation": "load_data"
     },
     {
-      "name": "discover_causality_node",
+      "name": "node_discover_causality",
       "implementation": "discover_causality"
     },
     {
-      "name": "validate_model_node",
+      "name": "node_check_discovery_error",
+      "implementation": "check_for_error"
+    },
+    {
+      "name": "node_debug_discovery",
+      "implementation": "universal_debugger"
+    },
+    {
+      "name": "node_validate_model",
       "implementation": "validate_model"
+    },
+    {
+      "name": "node_generate_report",
+      "implementation": "generate_explainability_report"
     }
   ],
   "edges": [
     {
-      "from": "load_data_node",
-      "to": "discover_causality_node"
+      "from": "node_load_data",
+      "to": "node_discover_causality"
     },
     {
-      "from": "discover_causality_node",
-      "to": "validate_model_node"
+      "from": "node_discover_causality",
+      "to": "node_check_discovery_error"
+    },
+    {
+      "from": "node_check_discovery_error",
+      "condition": "check_for_error",
+      "routes": {
+        "true": "node_debug_discovery",
+        "false": "node_validate_model"
+      }
+    },
+    {
+      "from": "node_debug_discovery",
+      "to": "node_discover_causality"
+    },
+    {
+      "from": "node_validate_model",
+      "to": "node_generate_report"
+    },
+    {
+      "from": "node_generate_report",
+      "to": null
     }
   ]
 }

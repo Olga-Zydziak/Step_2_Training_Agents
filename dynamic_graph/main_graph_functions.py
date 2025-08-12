@@ -1,20 +1,23 @@
 import json
 import os
+import io
 import autogen
 from langgraph.graph import StateGraph, END 
 from typing import List, Dict, Any, Optional, Type
 from .router import get_structured_response,select_team
 from agents.agents_library import DISCUSSION_AGENT_LIBRARY,main_agent_configuration
-from agents.agents import CasualAgent, DataScientistAgent
+from agents.agents import CausalExpertAgent, DataScientistAgent
 from .outputsModels import WorkflowPlan
 from .nodes import NODE_LIBRARY
 from prompts import *
+import sys
+from contextlib import redirect_stdout, redirect_stderr
 LOGS_DIR = "reports"
 LOG_FILE_PATH = os.path.join(LOGS_DIR, "planning_brainstorm.log")
 
 
 PROMPT_FACTORY_MAP = {
-    CasualAgent: PromptEngine.for_causal_expert,
+    CausalExpertAgent: PromptEngine.for_causal_expert,
     DataScientistAgent: PromptEngine.for_data_analyst,
     # Można tu dodawać kolejne typy planerów w przyszłości
 }
@@ -61,42 +64,70 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
     def custom_speaker_selection(last_speaker, groupchat):
         """Wymusza cykl debaty i zatrzymuje go po zatwierdzeniu planu."""
         messages = groupchat.messages
-        
+        planner_names = [p.name for p in planners]
         # Jeśli ostatnia wiadomość od Krytyka zawiera zatwierdzenie, zakończ dyskusję
         if last_speaker.name == critic.name and "PLAN_ZATWIERDZONY" in messages[-1].get("content", ""):
             return None # Zwrócenie None elegancko kończy rozmowę
 
-        # Standardowy cykl debaty
         if last_speaker.name == "Menedzer_Projektu":
             return planners[0]
-        if last_speaker.name in [p.name for p in planners]:
-            return critic
         
-        # Po uwagach od krytyka, wracamy do planisty
+        # Po recenzji krytyka, pętla wraca do pierwszego planisty.
+        if last_speaker.name == critic.name:
+            return planners[0]
+
+        # Jeśli ostatnio mówił planista...
+        if last_speaker.name in planner_names:
+            # Znajdź ostatnią turę krytyka.
+            last_critic_turn_index = -1
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i].get("name") == critic.name:
+                    last_critic_turn_index = i
+                    break
+            
+            # Zbierz, którzy planiści już mówili od ostatniej tury krytyka.
+            speakers_since_critic = {msg.get("name") for msg in messages[last_critic_turn_index + 1:]}
+            
+            # Znajdź tych, którzy jeszcze nie mówili w tej rundzie.
+            unspoken_planners = [p for p in planners if p.name not in speakers_since_critic]
+            
+            if unspoken_planners:
+                # Jeśli są planiści, którzy jeszcze nie mówili, oddaj głos pierwszemu z nich.
+                return unspoken_planners[0]
+            else:
+                # Jeśli wszyscy planiści już się wypowiedzieli, czas na krytyka.
+                return critic
+        
+        # Domyślny fallback
         return planners[0]
+
     all_agents = [user_proxy] + planners + [critic]
     groupchat = autogen.GroupChat(
         agents=all_agents, 
         messages=[], 
-        max_round=12, 
+        max_round=15, 
         speaker_selection_method=custom_speaker_selection
     )
     manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=main_agent_configuration)
     
     descriptions = [f"- {name}: {details['description']}" for name, details in NODE_LIBRARY.items()]
     node_descriptions = "Dostępne narzędzia:\n" + "\n".join(descriptions)
+
+    task_config = PromptEngine.for_architect(mission, node_descriptions)
+    task_message = PromptEngine.build(task_config)
     
-    # Używamy mapy, aby dynamicznie wybrać fabrykę promptu
     planner_instance = planners[0]
     prompt_factory_method = PROMPT_FACTORY_MAP.get(type(planner_instance))
 
+    # Zabezpieczenie: jeśli dla agenta (np. GPT) nie ma mapy, użyj ogólnego architekta
     if not prompt_factory_method:
-        raise TypeError(f"Brak fabryki promptów dla typu agenta: {type(planner_instance).__name__}")
+        prompt_factory_method = PromptEngine.for_architect
 
     task_config = prompt_factory_method(mission, node_descriptions)
     task_message = PromptEngine.build(task_config)
-    
+
     print("\n--- URUCHAMIANIE BURZY MÓZGÓW ---")
+    
     user_proxy.initiate_chat(manager, message=task_message)
     
     # --- Krok 4: Zapis Logów i Ekstrakcja Finalnego Planu ---
@@ -176,31 +207,80 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
 
 
 
-def build_and_run_graph(plan: WorkflowPlan, state_schema: Type, initial_state: Dict):
-    """Buduje i uruchamia graf na podstawie planu."""
-    # Tutaj wklejamy kod Fabryki Grafów, który już znamy
-    workflow = StateGraph(state_schema)
-    
-    for node_def in plan.nodes:
-        node_function = NODE_LIBRARY[node_def.implementation]['function']
-        workflow.add_node(node_def.name, node_function)
+def build_and_run_graph(plan: WorkflowPlan, state_schema: Type, initial_state: Dict, stream_config: Dict = None):
+    """
+    Buduje graf, uruchamia go i GWARANTUJE zapis pełnego logu z wykonania do pliku,
+    nawet w przypadku wystąpienia błędu krytycznego.
+    """
+    if stream_config is None:
+        stream_config = {}
 
-    for edge_def in plan.edges:
-        source = edge_def.source
-        if edge_def.condition:
-            # Tutaj również odwołujemy się do klucza 'function'
-            condition_function = NODE_LIBRARY[edge_def.condition]['function']
-            routes = {k: (END if v == "__end__" else v) for k, v in edge_def.routes.items()}
-            workflow.add_conditional_edges(source, condition_function, routes)
-        elif edge_def.target:
-            target = END if edge_def.target == "__end__" else edge_def.target
-            workflow.add_edge(source, target)
-    workflow.set_entry_point(plan.entry_point)
+    log_file_path = os.path.join("reports", "graph_execution.log")
+    os.makedirs("reports", exist_ok=True)
     
-    app = workflow.compile()
-    print("\n--- STRUKTURA ZBUDOWANEGO GRAFU ---")
-    app.get_graph().print_ascii()
-    
-    print("\n--- URUCHOMIENIE GRAFU ---")
-    for event in app.stream(initial_state):
-        print(event)
+    # Używamy bufora w pamięci do przechwytywania logów w czasie rzeczywistym
+    log_buffer = io.StringIO()
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    # Zaczynamy główny blok try...finally, aby zagwarantować wykonanie zapisu
+    try:
+        # Przekierowujemy standardowe wyjście (print) i błędy do naszego bufora
+        sys.stdout = log_buffer
+        sys.stderr = log_buffer
+
+        print("--- ROZPOCZĘCIE BUDOWY I WYKONANIA GRAFU ---")
+        
+        workflow = StateGraph(state_schema)
+
+        for node_def in plan.nodes:
+            node_function = NODE_LIBRARY[node_def.implementation]['function']
+            workflow.add_node(node_def.name, node_function)
+
+        for edge_def in plan.edges:
+            source = edge_def.source
+            if edge_def.condition:
+                condition_function = NODE_LIBRARY[edge_def.condition]['function']
+                routes = {k: (END if v == "__end__" else v) for k, v in edge_def.routes.items()}
+                workflow.add_conditional_edges(source, condition_function, routes)
+            elif edge_def.target:
+                target = END if edge_def.target == "__end__" else edge_def.target
+                workflow.add_edge(source, target)
+        
+        workflow.set_entry_point(plan.entry_point)
+        app = workflow.compile()
+
+        print("\n--- STRUKTURA ZBUDOWANEGO GRAFU ---")
+        app.get_graph().print_ascii()
+        
+        print("\n--- URUCHOMIENIE GRAFU ---")
+        for event in app.stream(initial_state, stream_config):
+            print(json.dumps(event, indent=2, ensure_ascii=False))
+
+    except Exception as e:
+        # Jeśli wystąpi JAKIKOLWIEK błąd, również go zapisujemy do bufora
+        print(f"\n--- BŁĄD KRYTYCZNY: PRZERWANO WYKONANIE ---")
+        import traceback
+        traceback.print_exc()
+
+    finally:
+        # Ten blok wykona się ZAWSZE, niezależnie od tego, czy był błąd, czy nie.
+        
+        # 1. Przywracamy oryginalne wyjścia, aby konsola znowu działała normalnie
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+        
+        # 2. Pobieramy całą zawartość z bufora
+        log_content = log_buffer.getvalue()
+        
+        # 3. Zapisujemy zawartość bufora do pliku
+        with open(log_file_path, 'w', encoding='utf-8') as f:
+            f.write(log_content)
+        
+        # 4. Wyświetlamy ostateczny log w konsoli
+        print("\n" + "="*60)
+        print(f"INFO: Pełen log z wykonania grafu został zapisany w: {log_file_path}")
+        print("--- KONSOLA: Poniżej znajduje się ostateczna zawartość logu ---")
+        print("="*60)
+        print(log_content)
+

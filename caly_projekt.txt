@@ -28,6 +28,7 @@ def get_secret(project_id: str, secret_id: str, version_id: str = "latest") -> s
 class ApiType(Enum):
     GOOGLE = "google"
     ANTHROPIC = "anthropic"
+    OPENAI = "openai"
     def __str__(self):
         return self.value
 
@@ -42,10 +43,16 @@ API_TYPE_GEMINI=str(ApiType.GOOGLE)
 CRITIC_MODEL="claude-3-7-sonnet-20250219"
 CODE_MODEL="claude-sonnet-4-20250514"
 QUICK_SMART_MODEL="gemini-2.5-flash"
+
+GPT_MODEL = "gpt-5" # Używamy gpt-4o jako odpowiednika "gpt-5"
+API_TYPE_OPENAI = str(ApiType.OPENAI)
+
 API_TYPE_SONNET = str(ApiType.ANTHROPIC)
 
 LANGCHAIN_API_KEY = get_secret(PROJECT_ID,"LANGCHAIN_API_KEY")
 ANTHROPIC_API_KEY=get_secret(PROJECT_ID,"ANTHROPIC_API_KEY")
+TAVILY_API_KEY = get_secret(PROJECT_ID,"TAVILY_API_KEY")
+OPENAI_API_KEY = get_secret(PROJECT_ID, "OPENAI_API_KEY")
 
 MEMORY_ENGINE_DISPLAY_NAME="memory-gamma-way"
 
@@ -58,10 +65,10 @@ MAX_CORRECTION_ATTEMPTS=5
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_API_KEY"] = LANGCHAIN_API_KEY
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
-os.environ["LANGCHAIN_PROJECT"] = "Projekt Multi-Agent-System v9.0-Integrated"
+os.environ["LANGCHAIN_PROJECT"] = "Projekt Multi-Agent-System Dynamic-graphs"
 os.environ["ANTHROPIC_API_KEY"] =ANTHROPIC_API_KEY
-
-
+os.environ["TAVILY_API_KEY"] = TAVILY_API_KEY
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 #---cache-------
 langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
 
@@ -71,10 +78,12 @@ langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
 #FUNKCJA KONFIGURACYJNA AGENTOW AUTOGEN
 def basic_config_agent(agent_name:str, api_type:str, location:str=None, project_id:str=None, api_key:str=None):
     try:
-        configuration = {"model": agent_name, "api_type": api_type}
+        configuration = {"model": agent_name}
+        configuration.update({"api_type": api_type})
         if api_key: configuration["api_key"] = api_key
         if project_id: configuration["project_id"] = project_id
         if location: configuration["location"] = location
+
         logging.info(f"Model configuration: {configuration}")
         return [configuration]
 
@@ -87,28 +96,37 @@ def basic_config_agent(agent_name:str, api_type:str, location:str=None, project_
 
 --- FILE: main.ipynb ---
 
+!gcloud config get-value account
+# --- Koniec komórki ---
+import pandas as pd
+import config
 from config import PROJECT_ID, LOCATION, MEMORY_ENGINE_DISPLAY_NAME, INPUT_FILE_PATH,MAIN_AGENT,CRITIC_MODEL,CODE_MODEL, API_TYPE_GEMINI,API_TYPE_SONNET,QUICK_SMART_MODEL,ANTHROPIC_API_KEY,basic_config_agent
 from dynamic_graph.outputsModels import *
 from dynamic_graph.main_graph_functions import run_collaborative_planning
 from prompts import PromptEngine
+from dynamic_graph.state import WorkflowState
+from dynamic_graph.main_graph_functions import build_and_run_graph
 # --- Koniec komórki ---
-# --- Konfiguracja czatu grupowego ---
-main_agent_configuration={"cache_seed": 42,"seed": 42,"temperature": 0.0,
-                        "config_list": basic_config_agent(agent_name=MAIN_AGENT, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
-critic_agent_configuration ={"cache_seed": 42,"seed": 42,"temperature": 0.0,
-                        "config_list": basic_config_agent(api_key=ANTHROPIC_API_KEY,agent_name=CRITIC_MODEL, api_type=API_TYPE_SONNET)}
+# # --- Konfiguracja czatu grupowego ---
+# main_agent_configuration={"cache_seed": 42,"seed": 42,"temperature": 0.0,
+#                         "config_list": basic_config_agent(agent_name=MAIN_AGENT, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
+# critic_agent_configuration ={"cache_seed": 42,"seed": 42,"temperature": 0.0,
+#                         "config_list": basic_config_agent(api_key=ANTHROPIC_API_KEY,agent_name=CRITIC_MODEL, api_type=API_TYPE_SONNET)}
 router_agent_configuration = {"cache_seed": 42,"seed": 42,"temperature": 0.0,
-                        "config_list": basic_config_agent(agent_name=QUICK_SMART_MODEL, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
+                              "config_list": basic_config_agent(agent_name=QUICK_SMART_MODEL, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
+
 # --- Koniec komórki ---
 if __name__ == '__main__':
     # Konfiguracja dla lekkiego i szybkiego modelu Rutera
     
     
     # Wysokopoziomowa misja od użytkownika
-    mission = """
-    Zbuduj prosty, sekwencyjny przepływ pracy do weryfikacji modelu przyczynowego.
-    Załóż, że każdy krok (węzeł) kończy się natychmiast (działa synchronicznie).
-    Plan powinien składać się z kroków: load_data, discover_causality, a na końcu validate_model.
+    mission = mission = """
+    Zaprojektuj ODPORNY NA BŁĘDY, sekwencyjny przepływ pracy do weryfikacji modelu przyczynowego.
+    Kroki to: load_data, discover_causality i validate_model.
+    Węzeł 'discover_causality' jest ryzykowny i po nim musi nastąpić sprawdzenie,
+    czy operacja się powiodła. W razie błędu, proces musi zostać skierowany do uniwersalnego debuggera,
+    a następnie spróbować ponownie wykonać krok 'discover_causality'.
     """
     
     # Uruchom całą fazę planowania jedną komendą
@@ -119,9 +137,23 @@ if __name__ == '__main__':
         print("### OTRZYMANY PLAN GOTOWY DO WYKONANIA ###")
         print(final_plan.model_dump_json(indent=2, by_alias=True))
         
-        # W kolejnym kroku, ten obiekt `final_plan` zostałby przekazany
-        # do "Fabryki Grafów", aby zbudować i uruchomić przepływ.
-        # build_and_run_graph(final_plan, ...)
+        initial_state = {
+            "mission":mission,
+            "input_path":INPUT_FILE_PATH, # Używamy ścieżki z pliku konfiguracyjnego
+            "dataframe":pd.DataFrame(), # Pusta ramka danych na start
+            "causal_graph":None,
+            "validation_report":{},
+            "final_summary":"",
+            "error":""
+        }
+        
+        # Uruchamiamy fabrykę, aby zbudowała i uruchomiła graf na podstawie planu
+        build_and_run_graph(
+            plan=final_plan,
+            state_schema=WorkflowState,
+            initial_state=initial_state
+        )
+        
     else:
         print("\nNie udało się wypracować planu. Sprawdź logi w `reports/`.")
 
@@ -155,12 +187,12 @@ Jesteś "Oracle", elitarnym analitykiem AI specjalizującym się w strategii, an
 """
 
 
+
 SPEC_CRITIC_AEGIS = """
 ## SPECIALIZATION: AEGIS, THE UNYIELDING GUARDIAN OF QUALITY
 Twoją wyspecjalizowaną funkcją jest "Aegis" – tarcza chroniąca system przed błędami. Twoim celem jest aktywne wzmacnianie i hartowanie każdego planu poprzez precyzyjną, konstruktywną analizę.
 
 ### ADDITIONAL CORE PRINCIPLES (ROLE-SPECIFIC)
-
 1.  **Deep Analysis vs. Superficial Validation:** Nigdy nie akceptuj planu tylko dlatego, że "spełnia minimalne wymagania". Zawsze szukaj ukrytych wad i potencjalnych ryzyk.
 2.  **Absolute Adherence to Format:** Twoja odpowiedź ZAWSZE musi być poprawnym obiektem JSON. Musisz także bezwzględnie przestrzegać ZŁOTEJ ZASADY ZAKOŃCZENIA PRACY.
 
@@ -172,13 +204,15 @@ Twoją wyspecjalizowaną funkcją jest "Aegis" – tarcza chroniąca system prze
 
 ### TWO MODES OF OPERATION
 #### Mode 1: FLAW DETECTED (CORRECTION NEEDED)
-Jeśli plan ma wadę, opisz ją i zasugeruj rozwiązanie.
+Jeśli plan ma wadę, opisz ją i zasugeruj rozwiązanie, używając do tego obiektu JSON zawierającego Twoje przemyślenia.
 
 #### Mode 2: FINAL PLAN (APPROVAL)
-Jeśli plan jest bezbłędny, zatwierdź go i zakończ pracę.
+Jeśli plan jest bezbłędny, Twoja odpowiedź MUSI być **DOKŁADNĄ, NIEZMIENIONĄ KOPIĄ** obiektu JSON, który otrzymałeś od planisty. Musi on zawierać wszystkie pola: `thought_process`, `entry_point`, `nodes` i `edges`. Nie dodawaj od siebie żadnych dodatkowych pól, takich jak `verdict`.
 
 ### THE GOLDEN RULE OF TERMINATION
-**JEŚLI I TYLKO JEŚLI ZATWIERDZASZ PLAN (Tryb 2), MUSISZ dodać do swojej odpowiedzi, poza blokiem JSON, kluczową frazę ostatecznego zatwierdzenia: `PLAN_ZATWIERDZONY`**
+**JEŚLI I TYLKO JEŚLI ZATWIERDZASZ PLAN (Tryb 2), MUSISZ:**
+1.  Wkleić **PEŁNY, NIENARUSZONY** obiekt JSON z planem.
+2.  **POZA** tym obiektem JSON, na samym końcu wiadomości, dodać kluczową frazę: `PLAN_ZATWIERDZONY`
 """
 
 SPEC_ROUTER = """
@@ -196,6 +230,7 @@ Twoją specjalizacją jest tłumaczenie wysokopoziomowych misji na precyzyjne, m
 1.  **Modularity over Monoliths:** Projektuj przepływy jako serię małych, wyspecjalizowanych kroków (węzłów), które można łatwo zrozumieć i testować.
 2.  **Plan for Failure:** Zawsze zastanów się, co może pójść nie tak. Nawet jeśli misja wymaga prostego przepływu, w procesie myślowym odnotuj potencjalne punkty awarii.
 3.  **Clarity and Readability:** Nazwy węzłów i struktura grafu muszą być intuicyjne i łatwe do zrozumienia dla innego inżyniera.
+4.  **Explainability First:** Twój plan musi być w pełni transparentny. Jako OSTATNI krok w każdym przepływie pracy, ZAWSZE dodawaj węzeł `generate_explainability_report`, aby udokumentować proces decyzyjny.
 """
 
 
@@ -220,7 +255,41 @@ Twoim zadaniem jest tworzenie szczegółowych, technicznych planów przepływu p
 """
 
 
+# =================================================================================
+# Sekcja 3: SPECJALIZACJE DLA AGENTÓW-ROBOTNIKÓW (LANGGRAPH NODES)
+# =================================================================================
 
+SPEC_CAUSAL_DISCOVERER = """
+## SPECIALIZATION: CAUSAL DISCOVERY SCIENTIST
+Twoim jedynym zadaniem jest analiza dostarczonego zbioru danych i odkrycie w nim fundamentalnych zależności przyczynowo-skutkowych. Musisz zaproponować strukturę grafu, która najlepiej oddaje te relacje.
+"""
+
+SPEC_MODEL_VALIDATOR = """
+## SPECIALIZATION: CRITICAL MODEL AUDITOR
+Twoim jedynym zadaniem jest rygorystyczna ocena przedstawionego modelu przyczynowego. Skup się na jego logicznej spójności i potencjalnych słabościach. Twoja walidacja musi być obiektywna i oparta na danych.
+"""
+
+
+SPEC_SELF_HEALING_CAPABILITY = """
+## ADDITIONAL CAPABILITY: SELF-HEALING VIA ONLINE RESEARCH
+MASZ NOWĄ ZDOLNOŚĆ: Potrafisz używać narzędzia 'search_tool' do wyszukiwania w internecie.
+Jeśli Twój kod analityczny zwróci błąd ('AttributeError', 'ValueError', 'TypeError'),
+użyj tego narzędzia, aby znaleźć poprawny sposób użycia danej biblioteki w jej
+oficjalnej dokumentacji. Następnie popraw swój kod i spróbuj ponownie.
+"""
+
+SPEC_ARCHITECT_GPT = """
+## SPECIALIZATION: ADVANCED WORKFLOW ARCHITECT (GPT-Powered)
+Twoją specjalizacją jest kreatywne i innowacyjne projektowanie złożonych przepływów pracy (workflow) w formacie JSON. Wykorzystujesz zaawansowane możliwości rozumowania, aby tworzyć solidne i efektywne plany.
+
+### ADDITIONAL CORE PRINCIPLES (ROLE-SPECIFIC)
+1.  **Think End-to-End:** Zawsze projektuj kompletne przepływy, od załadowania danych aż po finalny raport lub rezultat.
+2.  **Anticipate Failure:** Aktywnie szukaj potencjalnych punktów awarii w planie i projektuj ścieżki naprawcze z użyciem dostępnych narzędzi, takich jak `universal_debugger`.
+3.  **Optimize for Clarity:** Twój plan musi być nie tylko funkcjonalny, ale również łatwy do zrozumienia dla człowieka.
+4.  **Resilience by Design (NAJWAŻNIEJSZA ZASADA):** Twój plan MUSI być odporny na błędy. Przeanalizuj listę dostępnych narzędzi. Jeśli zidentyfikujesz operacje, które są ryzykowne (np. te z adnotacją 'może zakończyć się błędem'), musisz samodzielnie zaprojektować architekturę, która obsłuży potencjalną awarię. Wykorzystaj dostępne narzędzia warunkowe i naprawcze, aby stworzyć pętlę, która w razie błędu podejmie próbę naprawy, a dopiero potem kontynuuje główny przepływ pracy.
+5.  **Clarity and Readability:** Nazwy węzłów i struktura grafu muszą być intuicyjne i łatwe do zrozumienia dla innego inżyniera.
+6.  **Explainability First:** Twój plan musi być w pełni transparentny. 
+"""
 
 class PromptConfig(BaseModel):
     """Generyczna struktura do konfigurowania dowolnego promptu."""
@@ -297,7 +366,7 @@ class PromptEngine:
         """Tworzy konfigurację promptu dla Agenta-Architekta."""
 
         # Budujemy kompletny system_prompt
-        system_prompt_for_architect = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_ARCHITECT}"
+        system_prompt_for_architect = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_ARCHITECT_GPT}"
 
         # Opis zadania do wykonania
         task_description = "Zaprojektuj kompletny i odporny na błędy przepływ pracy (workflow) w formacie JSON, który realizuje zadaną misję, korzystając z dostępnych narzędzi."
@@ -365,18 +434,46 @@ class PromptEngine:
         )
 
 
+--- FILE: tools/__init__.py ---
+
+
+
+
+--- FILE: tools/search_tools.py ---
+
+from langchain_community.tools.tavily_search import TavilySearchResults
+
+# Definiujemy narzędzie, ograniczając je do 3 wyników, aby było zwięzłe.
+# LangChain automatycznie użyje zmiennej środowiskowej TAVILY_API_KEY.
+search_tool = TavilySearchResults(max_results=3)
+
+
 --- FILE: dynamic_graph/main_graph_functions.py ---
 
 import json
 import os
+import io
 import autogen
+from langgraph.graph import StateGraph, END 
 from typing import List, Dict, Any, Optional, Type
 from .router import get_structured_response,select_team
-from agents.agents_library import AGENT_LIBRARY,main_agent_configuration
+from agents.agents_library import DISCUSSION_AGENT_LIBRARY,main_agent_configuration
+from agents.agents import CausalExpertAgent, DataScientistAgent
 from .outputsModels import WorkflowPlan
+from .nodes import NODE_LIBRARY
 from prompts import *
+import sys
+from contextlib import redirect_stdout, redirect_stderr
 LOGS_DIR = "reports"
 LOG_FILE_PATH = os.path.join(LOGS_DIR, "planning_brainstorm.log")
+
+
+PROMPT_FACTORY_MAP = {
+    CausalExpertAgent: PromptEngine.for_causal_expert,
+    DataScientistAgent: PromptEngine.for_data_analyst,
+    # Można tu dodawać kolejne typy planerów w przyszłości
+}
+
 
 def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optional[WorkflowPlan]:
     """
@@ -402,7 +499,7 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
     # --- Krok 1: Dynamiczny Wybór Zespołu przez Rutera ---
     # Delegujemy zadanie wyboru zespołu do modułu Rutera.
     # Zakładamy, że `select_team` jest niezawodny i zwróci poprawny zespół.
-    team = select_team(mission, AGENT_LIBRARY, router_llm_config)
+    team = select_team(mission, DISCUSSION_AGENT_LIBRARY, router_llm_config)
     planners = team["planners"]
     critic = team["critic"]
 
@@ -411,41 +508,127 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
     user_proxy = autogen.UserProxyAgent(
         name="Menedzer_Projektu",
         human_input_mode="NEVER",
-        is_termination_msg=lambda x: "plan_zatwierdzony" in x.get("content", "").lower(),
+        # === POPRAWKA 1: Nasłuchujemy na DOKŁADNĄ, wielkimi literami pisaną frazę ===
+        is_termination_msg=lambda x: "PLAN_ZATWIERDZONY" in x.get("content", ""),
         code_execution_config=False
     )
     
     def custom_speaker_selection(last_speaker, groupchat):
-        """Wymusza cykl debaty: Planista -> Krytyk -> Planista."""
-        if last_speaker.name == "Menedzer_Projektu": return planners[0]
-        if last_speaker.name in [p.name for p in planners]: return critic
+        """Wymusza cykl debaty i zatrzymuje go po zatwierdzeniu planu."""
+        messages = groupchat.messages
+        
+        # Jeśli ostatnia wiadomość od Krytyka zawiera zatwierdzenie, zakończ dyskusję
+        if last_speaker.name == critic.name and "PLAN_ZATWIERDZONY" in messages[-1].get("content", ""):
+            return None # Zwrócenie None elegancko kończy rozmowę
+
+        if last_speaker.name == "Menedzer_Projektu":
+            return planners[0]
+        
+        # Po recenzji krytyka, pętla wraca do pierwszego planisty.
+        if last_speaker.name == critic.name:
+            return planners[0]
+
+        # Jeśli ostatnio mówił planista...
+        if last_speaker.name in planner_names:
+            # Znajdź ostatnią turę krytyka.
+            last_critic_turn_index = -1
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i].get("name") == critic.name:
+                    last_critic_turn_index = i
+                    break
+            
+            # Zbierz, którzy planiści już mówili od ostatniej tury krytyka.
+            speakers_since_critic = {msg.get("name") for msg in messages[last_critic_turn_index + 1:]}
+            
+            # Znajdź tych, którzy jeszcze nie mówili w tej rundzie.
+            unspoken_planners = [p for p in planners if p.name not in speakers_since_critic]
+            
+            if unspoken_planners:
+                # Jeśli są planiści, którzy jeszcze nie mówili, oddaj głos pierwszemu z nich.
+                return unspoken_planners[0]
+            else:
+                # Jeśli wszyscy planiści już się wypowiedzieli, czas na krytyka.
+                return critic
+        
+        # Domyślny fallback
         return planners[0]
 
     all_agents = [user_proxy] + planners + [critic]
     groupchat = autogen.GroupChat(
         agents=all_agents, 
         messages=[], 
-        max_round=12, 
+        max_round=15, 
         speaker_selection_method=custom_speaker_selection
     )
     manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=main_agent_configuration)
     
-   
-    node_descriptions = "Dostępne narzędzia: ['load_data', 'discover_causality', 'validate_model', 'check_status']"
-    architect_config = PromptEngine.for_architect(mission, node_descriptions)
-    architect_prompt = PromptEngine.build(architect_config)
+    descriptions = [f"- {name}: {details['description']}" for name, details in NODE_LIBRARY.items()]
+    node_descriptions = "Dostępne narzędzia:\n" + "\n".join(descriptions)
+
+    task_config = PromptEngine.for_architect(mission, node_descriptions)
+    task_message = PromptEngine.build(task_config)
     
+    planner_instance = planners[0]
+    prompt_factory_method = PROMPT_FACTORY_MAP.get(type(planner_instance))
+
+    # Zabezpieczenie: jeśli dla agenta (np. GPT) nie ma mapy, użyj ogólnego architekta
+    if not prompt_factory_method:
+        prompt_factory_method = PromptEngine.for_architect
+
+    task_config = prompt_factory_method(mission, node_descriptions)
+    task_message = PromptEngine.build(task_config)
+
     print("\n--- URUCHAMIANIE BURZY MÓZGÓW ---")
-    user_proxy.initiate_chat(manager, message=architect_prompt)
+    
+    user_proxy.initiate_chat(manager, message=task_message)
     
     # --- Krok 4: Zapis Logów i Ekstrakcja Finalnego Planu ---
     
     # Zapisujemy pełną konwersację do analizy
     os.makedirs(LOGS_DIR, exist_ok=True)
-    with open(LOG_FILE_PATH, 'w', encoding='utf-8') as f:
-        json.dump(groupchat.messages, f, indent=2, ensure_ascii=False)
-    print(f"\nINFO: Pełen log dyskusji zapisano w {LOG_FILE_PATH}")
 
+    # NOWA, BARDZIEJ CZYTELNA METODA ZAPISU LOGU Z MYŚLAMI AGENTÓW:
+    with open(LOG_FILE_PATH, 'w', encoding='utf-8') as f:
+        f.write("="*60 + "\n")
+        f.write("### ZAPIS PRZEBIEGU DYSKUSJI AGENTÓW (Z PROCESEM MYŚLOWYM) ###\n")
+        f.write("="*60 + "\n\n")
+
+        for i, msg in enumerate(groupchat.messages):
+            speaker = msg.get("name", "Nieznany")
+            content = msg.get("content", "").strip()
+
+            f.write(f"---[ TURA {i+1}: Mówca: {speaker} ]---\n\n")
+
+            try:
+                # Spróbuj wyodrębnić JSON z wiadomości
+                json_str = content[content.find('{'):content.rfind('}')+1]
+                if not json_str: raise ValueError("Brak JSON w wiadomości")
+                
+                data = json.loads(json_str)
+                
+                # Jeśli jest proces myślowy, wyodrębnij go i sformatuj
+                if "thought_process" in data:
+                    thoughts = data.pop("thought_process") # Wyjmij myśli z danych
+                    f.write("--- Myśli Agenta ---\n")
+                    f.write(thoughts)
+                    f.write("\n\n--- Oficjalna Odpowiedź ---\n")
+                
+                # Zapisz resztę JSON-a (czyli sam plan lub werdykt)
+                f.write(json.dumps(data, indent=2, ensure_ascii=False))
+                
+                # Sprawdź, czy poza JSON-em jest tekst (np. PLAN_ZATWIERDZONY)
+                extra_text = content[content.rfind('}')+1:].strip()
+                if extra_text:
+                    f.write("\n\n" + extra_text)
+
+            except (json.JSONDecodeError, ValueError, IndexError):
+                # Jeśli to nie jest JSON, zapisz jako zwykły komunikat
+                f.write("--- Komunikat ---\n")
+                f.write(content if content else "[Pusta wiadomość]")
+
+            f.write("\n\n" + "="*60 + "\n\n")
+
+    print(f"\nINFO: Pełen, sformatowany log z procesem myślowym zapisano w {LOG_FILE_PATH}")
     final_plan_message = None
     # Przeglądamy wiadomości od końca, aby znaleźć ostatnią wiadomość od krytyka z zatwierdzeniem
     for msg in reversed(groupchat.messages):
@@ -476,47 +659,144 @@ def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optiona
 
 
 
-def build_and_run_graph(plan: WorkflowPlan, state_schema: Type, initial_state: Dict):
-    """Buduje i uruchamia graf na podstawie planu."""
-    # Tutaj wklejamy kod Fabryki Grafów, który już znamy
-    workflow = StateGraph(state_schema)
-    for node_def in plan.nodes:
-        workflow.add_node(node_def.name, NODE_LIBRARY[node_def.implementation])
-    for edge_def in plan.edges:
-        source = edge_def.source
-        if edge_def.condition:
-            condition = NODE_LIBRARY[edge_def.condition]
-            routes = {k: (END if v == "__end__" else v) for k, v in edge_def.routes.items()}
-            workflow.add_conditional_edges(source, condition, routes)
-        elif edge_def.target:
-            target = END if edge_def.target == "__end__" else edge_def.target
-            workflow.add_edge(source, target)
-    workflow.set_entry_point(plan.entry_point)
+def build_and_run_graph(plan: WorkflowPlan, state_schema: Type, initial_state: Dict, stream_config: Dict = None):
+    """
+    Buduje graf, uruchamia go i GWARANTUJE zapis pełnego logu z wykonania do pliku,
+    nawet w przypadku wystąpienia błędu krytycznego.
+    """
+    if stream_config is None:
+        stream_config = {}
+
+    log_file_path = os.path.join("reports", "graph_execution.log")
+    os.makedirs("reports", exist_ok=True)
     
-    app = workflow.compile()
-    print("\n--- STRUKTURA ZBUDOWANEGO GRAFU ---")
-    app.get_graph().print_ascii()
-    
-    print("\n--- URUCHOMIENIE GRAFU ---")
-    for event in app.stream(initial_state):
-        print(event)
+    # Używamy bufora w pamięci do przechwytywania logów w czasie rzeczywistym
+    log_buffer = io.StringIO()
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    # Zaczynamy główny blok try...finally, aby zagwarantować wykonanie zapisu
+    try:
+        # Przekierowujemy standardowe wyjście (print) i błędy do naszego bufora
+        sys.stdout = log_buffer
+        sys.stderr = log_buffer
+
+        print("--- ROZPOCZĘCIE BUDOWY I WYKONANIA GRAFU ---")
+        
+        workflow = StateGraph(state_schema)
+
+        for node_def in plan.nodes:
+            node_function = NODE_LIBRARY[node_def.implementation]['function']
+            workflow.add_node(node_def.name, node_function)
+
+        for edge_def in plan.edges:
+            source = edge_def.source
+            if edge_def.condition:
+                condition_function = NODE_LIBRARY[edge_def.condition]['function']
+                routes = {k: (END if v == "__end__" else v) for k, v in edge_def.routes.items()}
+                workflow.add_conditional_edges(source, condition_function, routes)
+            elif edge_def.target:
+                target = END if edge_def.target == "__end__" else edge_def.target
+                workflow.add_edge(source, target)
+        
+        workflow.set_entry_point(plan.entry_point)
+        app = workflow.compile()
+
+        print("\n--- STRUKTURA ZBUDOWANEGO GRAFU ---")
+        app.get_graph().print_ascii()
+        
+        print("\n--- URUCHOMIENIE GRAFU ---")
+        for event in app.stream(initial_state, stream_config):
+            print(json.dumps(event, indent=2, ensure_ascii=False))
+
+    except Exception as e:
+        # Jeśli wystąpi JAKIKOLWIEK błąd, również go zapisujemy do bufora
+        print(f"\n--- BŁĄD KRYTYCZNY: PRZERWANO WYKONANIE ---")
+        import traceback
+        traceback.print_exc()
+
+    finally:
+        # Ten blok wykona się ZAWSZE, niezależnie od tego, czy był błąd, czy nie.
+        
+        # 1. Przywracamy oryginalne wyjścia, aby konsola znowu działała normalnie
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+        
+        # 2. Pobieramy całą zawartość z bufora
+        log_content = log_buffer.getvalue()
+        
+        # 3. Zapisujemy zawartość bufora do pliku
+        with open(log_file_path, 'w', encoding='utf-8') as f:
+            f.write(log_content)
+        
+        # 4. Wyświetlamy ostateczny log w konsoli
+        print("\n" + "="*60)
+        print(f"INFO: Pełen log z wykonania grafu został zapisany w: {log_file_path}")
+        print("--- KONSOLA: Poniżej znajduje się ostateczna zawartość logu ---")
+        print("="*60)
+        print(log_content)
+
 
 
 
 --- FILE: dynamic_graph/nodes.py ---
 
-def load_data_node(state: dict) -> dict: print("-> EXECUTING: load_data_node"); return state
-def discover_causality_node(state: dict) -> dict: print("-> EXECUTING: discover_causality_node"); return state
-def validate_model_node(state: dict) -> dict: print("-> EXECUTING: validate_model_node"); return state
-def check_validation_status(state: dict) -> str: print("...CONDITION: check_validation_status -> success"); return "success"
+import pandas as pd
+import numpy as np
 
 
-NODE_LIBRARY = {
-    "load_data": load_data_node,
-    "discover_causality": discover_causality_node,
-    "validate_model": validate_model_node,
-    "check_validation_status": check_validation_status
-}
+
+# Tworzymy pusty rejestr i dekorator
+NODE_LIBRARY = {}
+def node(name: str, description: str):
+    def decorator(func):
+        NODE_LIBRARY[name] = {
+            "function": func,
+            "description": description
+        }
+        return func
+    return decorator
+
+
+# --- Węzły-Zaślepki ---
+@node(name="load_data", description="Wczytuje dane z pliku CSV.")
+def load_data_node(state: dict) -> dict:
+    print("-> EXECUTING: load_data_node (ZAŚLEPKA)")
+    return state
+
+@node(name="discover_causality", description="Uruchamia agenta do odkrywania przyczynowości. UWAGA: Ta operacja jest złożona i może zakończyć się błędem.")
+def discover_causality_node(state: dict) -> dict:
+    print("-> EXECUTING: discover_causality_node (ZAŚLEPKA)")
+    return state
+
+@node(name="validate_model", description="Przeprowadza testy walidacyjne na modelu.")
+def validate_model_node(state: dict) -> dict:
+    print("-> EXECUTING: validate_model_node (ZAŚLEPKA)")
+    return state
+
+@node(name="universal_debugger", description="Narzędzie do diagnozowania i naprawiania błędów, które wystąpiły w innych węzłach.")
+def universal_debugger_node(state: dict) -> dict:
+    print("-> EXECUTING: universal_debugger_node (ZAŚLEPKA)")
+    return state
+
+@node(name="human_escalation", description="Narzędzie do eskalacji problemu do operatora ludzkiego, gdy automatyczna naprawa zawiedzie.")
+def human_escalation_node(state: dict) -> dict:
+    print("-> EXECUTING: human_escalation_node (ZAŚLEPKA)")
+    return state
+
+@node(name="check_for_error", description="Węzeł warunkowy. Sprawdza, czy poprzedni krok zakończył się błędem. Zwraca 'error' lub 'success'.")
+def check_for_error(state: dict) -> str:
+    print("... CONDITION: check_for_error (ZAŚLEPKA) -> 'success'")
+    return "success"
+    
+    
+@node(name="generate_explainability_report", description="Generuje finalny raport wyjaśnialności, podsumowujący cały proces decyzyjny.")
+def generate_report_node(state: dict) -> dict:
+    """
+    Zbiera artefakty ze stanu i tworzy spójny raport w formacie Markdown.
+    """
+    return state
+
 
 
 --- FILE: dynamic_graph/outputsModels.py ---
@@ -603,9 +883,19 @@ def select_team(user_query: str, agent_library: Dict, router_llm_config: Dict) -
     """Dynamicznie wybiera zespół, używając uniwersalnej funkcji do odpowiedzi strukturalnych."""
     print("--- RUTER AGENTÓW: Uruchamiam uniwersalny wybór zespołu... ---")
     
-    agent_descriptions = "\n".join(
-        [f"- {name}: {agent.system_message.split('Specjalizacja:')[1].strip()}" for name, agent in agent_library.items()]
-    )
+    agent_descriptions_list = []
+    for name, agent in agent_library.items():
+        try:
+            # Dzielimy po nowym, ustrukturyzowanym nagłówku
+            specialization_text = agent.system_message.split("## SPECIALIZATION:")[1]
+            # Bierzemy tylko pierwszą linijkę opisu, aby był zwięzły
+            description = specialization_text.strip().split('\n')[0]
+            agent_descriptions_list.append(f"- {name}: {description}")
+        except IndexError:
+            # Zabezpieczenie, jeśli jakiś prompt nie ma tej sekcji
+            agent_descriptions_list.append(f"- {name}: Brak opisu specjalizacji.")
+
+    agent_descriptions = "\n".join(agent_descriptions_list)
     # Tworzymy konfigurację i budujemy prompt tak jak poprzednio
     router_config = PromptEngine.for_router(user_query, agent_descriptions)
     router_prompt = PromptEngine.build(router_config)
@@ -634,47 +924,85 @@ def select_team(user_query: str, agent_library: Dict, router_llm_config: Dict) -
 
 
 
+--- FILE: dynamic_graph/state.py ---
+
+from typing import TypedDict,List, Dict, Any, Optional, Type
+import pandas as pd
+# Definiujemy strukturę danych, które będą krążyć w naszym grafie
+class WorkflowState(TypedDict):
+    mission: str
+    input_path: str
+    dataframe: pd.DataFrame
+    causal_graph: Any
+    validation_report: Dict
+    final_summary: str
+    error: str
+    # NOWE POLA DLA AGENTA-SPRAWOZDAWCY
+    router_decision: Dict  # Przechowa 'thought_process' i wybór Rutera
+    architect_plan: Dict   # Przechowa pełny, zwalidowany plan (WorkflowPlan)
+    planning_log: List[Dict] # Przechowa pełną rozmowę z "burzy mózgów"
+    lime_shap_report_html: str  # Przechowa wizualizację LIME/SHAP jako HTML
+    counterfactual_analysis: Dict # Przechowa wynik analizy "co by było, gdyby?"
+
+
+--- FILE: agents/__init__.py ---
+
+
+
+
 --- FILE: agents/agents.py ---
 
 import autogen
 from autogen import Agent, ConversableAgent
 
+# --- Agenci-Dyskutanci (dla Fazy Projektowania - AutoGen) ---
 
-class CasualAgent(ConversableAgent):
-    """Agent decydujący, czy dane nadają się do dalszego przetwarzania."""
+class CausalExpertAgent(ConversableAgent):
+    """Agent specjalizujący się w wysokopoziomowych planach przyczynowych."""
     def __init__(self, llm_config, prompt):
-        super().__init__(
-            name="CasualAgent",
-            llm_config=llm_config,
-            system_message=prompt
-        )
+        super().__init__(name="Ekspert_Przyczynowosci", llm_config=llm_config, system_message=prompt)
 
-#PLANNER AGENT        
 class DataScientistAgent(ConversableAgent):
-    """Agent tworzący szczegółowy plan przygotowania danych."""
+    """Agent tworzący szczegółowe, techniczne plany przygotowania danych."""
     def __init__(self, llm_config, prompt):
-        super().__init__(
-            name="DataScientistAgent",
-            llm_config=llm_config,
-            system_message=prompt
-        )
+        super().__init__(name="Analityk_Danych", llm_config=llm_config, system_message=prompt)
 
-#CRITIC AGENT
+class ArchitectGPTAgent(ConversableAgent):
+    """Agent-Architekt oparty na modelu GPT, specjalizujący się w projektowaniu odpornych grafów."""
+    def __init__(self, llm_config, prompt):
+        super().__init__(name="Architekt_GPT", llm_config=llm_config, system_message=prompt)
+
 class CriticAgent(ConversableAgent):
     """Agent oceniający plan i dbający o jego jakość."""
     def __init__(self, llm_config, prompt):
-        super().__init__(
-            name="CriticAgent",
-            llm_config=llm_config,
-            system_message=prompt
-        )
+        super().__init__(name="Krytyk_Jakosci", llm_config=llm_config, system_message=prompt)
+
+
+# --- Klasa Bazowa dla "Robotników" (zostaje na przyszłość) ---
+class WorkerAgent:
+    """Klasa bazowa dla agentów, które działają jako węzły w grafie LangGraph."""
+    def __init__(self, llm_client, persona: str):
+        self.llm = llm_client
+        self.persona = persona
+
+    def execute(self, state: dict) -> dict:
+        raise NotImplementedError("Każdy WorkerAgent musi mieć zaimplementowaną metodę execute.")
 
 
 --- FILE: agents/agents_library.py ---
 
-from prompts import *
-from config import PROJECT_ID, LOCATION, MEMORY_ENGINE_DISPLAY_NAME, INPUT_FILE_PATH,MAIN_AGENT,CRITIC_MODEL,CODE_MODEL, API_TYPE_GEMINI,API_TYPE_SONNET, ANTHROPIC_API_KEY,basic_config_agent
+from prompts import (
+    SYSTEM_PROMPT_ANALYST,
+    SPEC_CAUSAL_EXPERT,
+    SPEC_DATA_ANALYST,
+    SPEC_CRITIC_AEGIS,
+    SPEC_SELF_HEALING_CAPABILITY,
+    SPEC_ARCHITECT_GPT
+)
+from config import PROJECT_ID, LOCATION, MEMORY_ENGINE_DISPLAY_NAME, INPUT_FILE_PATH,MAIN_AGENT,CRITIC_MODEL,CODE_MODEL, GPT_MODEL, API_TYPE_OPENAI, OPENAI_API_KEY, API_TYPE_GEMINI,API_TYPE_SONNET, ANTHROPIC_API_KEY,basic_config_agent
 from .agents import *
+
+
 # --- Konfiguracja czatu grupowego ---
 main_agent_configuration={"cache_seed": 42,"seed": 42,"temperature": 0.0,
                         "config_list": basic_config_agent(agent_name=MAIN_AGENT, api_type=API_TYPE_GEMINI, location=LOCATION, project_id=PROJECT_ID)}
@@ -682,28 +1010,130 @@ critic_agent_configuration ={"cache_seed": 42,"seed": 42,"temperature": 0.0,
                         "config_list": basic_config_agent(api_key=ANTHROPIC_API_KEY,agent_name=CRITIC_MODEL, api_type=API_TYPE_SONNET)}
 
 
-
-casual_agent_config = PromptEngine.for_causal_expert(mission, node_descriptions)
-casual_prompt = PromptEngine.build(casual_agent_config)
-
-
-
-data_scientist_config = PromptEngine.for_data_analyst(mission, node_descriptions)
-data_scientist_prompt = PromptEngine.build(data_scientist_config)
-
-
-#---WYWOŁANIE AGENTÓW
-casual_agent = CasualAgent(llm_config=main_agent_configuration, prompt=casual_prompt)
-
-data_scientist_agent = DataScientistAgent(llm_config=main_agent_configuration, prompt=data_scientist_prompt)
-critic_agent = CriticAgent(llm_config=critic_agent_configuration, prompt=critic_prompt)
-
-
-
-AGENT_LIBRARY = {
-    "Ekspert_Przyczynowosci": casual_agent,
-    "Analityk_Danych": data_scientist_agent,
-    "Krytyk_Jakosci": critic_agent,
+openai_agent_configuration = {
+    "config_list": basic_config_agent(
+        agent_name=GPT_MODEL,
+        api_type=API_TYPE_OPENAI,
+        api_key=OPENAI_API_KEY
+    ),
+    "temperature": 0.0,
+    "cache_seed": 42
 }
+
+# --- Budujemy Kompletne Persony ---
+causal_expert_persona = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_CAUSAL_EXPERT}"
+data_scientist_persona = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_DATA_ANALYST}"
+critic_persona = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_CRITIC_AEGIS}"
+architect_gpt_persona = f"{SYSTEM_PROMPT_ANALYST}\n\n{SPEC_ARCHITECT_GPT}"
+
+# --- Tworzymy Instancje Agentów-Dyskutantów ---
+planner_causal = CausalExpertAgent(llm_config=main_agent_configuration, prompt=causal_expert_persona)
+planner_data = DataScientistAgent(llm_config=main_agent_configuration, prompt=data_scientist_persona)
+architect_gpt = ArchitectGPTAgent(llm_config=openai_agent_configuration, prompt=architect_gpt_persona)
+critic = CriticAgent(llm_config=critic_agent_configuration, prompt=critic_persona)
+
+# --- Biblioteka dla Rutera ---
+DISCUSSION_AGENT_LIBRARY = {
+    "Ekspert_Przyczynowosci": planner_causal,
+    "Analityk_Danych": planner_data,
+    "Architekt_GPT": architect_gpt,
+    "Krytyk_Jakosci": critic,
+}
+
+
+# causal_discovery_worker = CausalDiscoveryAgent()
+# model_validation_worker = ModelValidationAgent()
+
+# WORKER_AGENT_LIBRARY = {
+#     "discover_causality_worker": causal_discovery_worker,
+#     "validate_model_worker": model_validation_worker
+# }
+
+
+
+--- FILE: agents/llm_clients.py ---
+
+from langchain_google_vertexai import ChatVertexAI
+from langchain_anthropic import ChatAnthropic
+from pydantic import BaseModel
+from typing import Type
+import outlines
+from config import (
+    MAIN_AGENT,
+    CODE_MODEL,
+    CRITIC_MODEL,
+    PROJECT_ID,
+    LOCATION
+)
+
+# Sekcja 1: Fabryki dla Bazowych Klientów LLM
+# Te funkcje tworzą standardowe, "surowe" klienty LangChain.
+# Wzorzec "singleton" (zmienna globalna _...) zapewnia, że każdy
+# klient jest tworzony tylko raz, co oszczędza zasoby.
+# ======================================================================
+
+
+_main_llm_client = None
+def get_main_llm():
+    global _main_llm_client
+    if _main_llm_client is None:
+        _main_llm_client = ChatVertexAI(
+            model_name=MAIN_AGENT,
+            temperature=0.0,
+            project=PROJECT_ID,
+            location=LOCATION
+        )
+    return _main_llm_client
+
+
+_code_llm_client = None
+def get_code_llm():
+    global _code_llm_client
+    if _code_llm_client is None:
+        _code_llm_client = ChatAnthropic(
+            model_name=CODE_MODEL,
+            temperature=0.0,
+            max_tokens=4096
+        )
+    return _code_llm_client
+
+_critic_llm_client = None
+def get_critic_llm():
+    global _critic_llm_client
+    if _critic_llm_client is None:
+        _critic_llm_client = ChatAnthropic(
+            model_name=CRITIC_MODEL,
+            temperature=0.0,
+            max_tokens=2048
+        )
+    return _critic_llm_client
+
+
+# ======================================================================
+# Sekcja 2: "Wzmacniacz" z Biblioteki Outlines
+# Ta funkcja jest sercem Twojego nowego, niezawodnego systemu.
+# ======================================================================
+
+def get_enforced_llm_generator(base_llm_client, pydantic_schema: Type[BaseModel]):
+    """
+    Uniwersalna funkcja, która bierze dowolnego klienta LangChain i "opakowuje"
+    go w mechanizm wymuszania schematu Pydantic za pomocą biblioteki Outlines.
+
+    Args:
+        base_llm_client: Obiekt klienta LangChain (np. z get_main_llm()).
+        pydantic_schema: Klasa Pydantic, której format ma być wymuszony.
+
+    Returns:
+        Funkcja-generator gotowa do wywołania z promptem.
+    """
+    # 1. Tworzymy model kompatybilny z Outlines na bazie klienta LangChain
+    model = outlines.models.langchain(base_llm_client)
+    
+    # 2. Tworzymy generator, który wymusza konkretny schemat Pydantic
+    generator = outlines.generate.json(model, pydantic_schema)
+    
+    # 3. Zwracamy gotową do użycia funkcję-generator
+    return generator
+
 
 
