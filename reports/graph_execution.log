@@ -1,69 +1,68 @@
 --- ROZPOCZĘCIE BUDOWY I WYKONANIA GRAFU ---
 
 --- STRUKTURA ZBUDOWANEGO GRAFU ---
-                            +-----------+                         
-                            | __start__ |                         
-                            +-----------+                         
-                                  *                               
-                                  *                               
-                                  *                               
-                         +----------------+                       
-                         | node_load_data |                       
-                         +----------------+                       
-                                  *                               
-                                  *                               
-                                  *                               
-                    +-------------------------+                   
-                    | node_discover_causality |                   
-                    +-------------------------+                   
-                       ****               ****                    
-                    ***                       ***                 
-                  **                             ***              
-+----------------------------+                      **            
-| node_check_discovery_error |                       *            
-+----------------------------+.                      *            
-               .               .......               *            
-               .                      ......         *            
-               .                            ....     *            
-    +---------------------+              +----------------------+ 
-    | node_validate_model |              | node_debug_discovery | 
-    +---------------------+              +----------------------+ 
-               *                                                  
-               *                                                  
-               *                                                  
-   +----------------------+                                       
-   | node_generate_report |                                       
-   +----------------------+                                       
-               *                                                  
-               *                                                  
-               *                                                  
-          +---------+                                             
-          | __end__ |                                             
-          +---------+                                             
+       +-----------+         
+       | __start__ |         
+       +-----------+         
+              *              
+              *              
+              *              
+    +----------------+       
+    | load_data_node |       
+    +----------------+       
+              *              
+              *              
+              *              
++-------------------------+  
+| discover_causality_node |  
++-------------------------+  
+              *              
+              *              
+              *              
++------------------------+   
+| check_discovery_status |   
++------------------------+   
+              *              
+              *              
+              *              
+        +---------+          
+        | __end__ |          
+        +---------+          
 
 --- URUCHOMIENIE GRAFU ---
 -> EXECUTING: load_data_node (ZAŚLEPKA)
-
---- BŁĄD KRYTYCZNY: PRZERWANO WYKONANIE ---
-Traceback (most recent call last):
-  File "/home/jupyter/olga_zydziak/version_beta/Step_2_Training_Agents/dynamic_graph/main_graph_functions.py", line 232, in build_and_run_graph
-    print(json.dumps(event, indent=2, ensure_ascii=False))
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/envs/agents_with_memory_py11/lib/python3.11/json/__init__.py", line 238, in dumps
-    **kw).encode(obj)
-          ^^^^^^^^^^^
-  File "/opt/conda/envs/agents_with_memory_py11/lib/python3.11/json/encoder.py", line 202, in encode
-    chunks = list(chunks)
-             ^^^^^^^^^^^^
-  File "/opt/conda/envs/agents_with_memory_py11/lib/python3.11/json/encoder.py", line 432, in _iterencode
-    yield from _iterencode_dict(o, _current_indent_level)
-  File "/opt/conda/envs/agents_with_memory_py11/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
-    yield from chunks
-  File "/opt/conda/envs/agents_with_memory_py11/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
-    yield from chunks
-  File "/opt/conda/envs/agents_with_memory_py11/lib/python3.11/json/encoder.py", line 439, in _iterencode
-    o = _default(o)
-        ^^^^^^^^^^^
-  File "/opt/conda/envs/agents_with_memory_py11/lib/python3.11/json/encoder.py", line 180, in default
-    raise TypeError(f'Object of type {o.__class__.__name__} '
-TypeError: Object of type DataFrame is not JSON serializable
+{
+  "load_data_node": {
+    "mission": "\n    Zaprojektuj ODPORNY NA BŁĘDY, sekwencyjny przepływ pracy do weryfikacji modelu przyczynowego.\n    Kroki to: load_data, discover_causality i validate_model.\n    Węzeł 'discover_causality' jest ryzykowny i po nim musi nastąpić sprawdzenie,\n    czy operacja się powiodła. W razie błędu, proces musi zostać skierowany do uniwersalnego debuggera,\n    a następnie spróbować ponownie wykonać krok 'discover_causality'.\n    ",
+    "input_path": "gs://super_model/data/structural_data/synthetic_fraud_dataset.csv",
+    "dataframe": "<DataFrame Shape: (0, 0)>",
+    "causal_graph": null,
+    "validation_report": {},
+    "final_summary": "",
+    "error": ""
+  }
+}
+-> EXECUTING: discover_causality_node (ZAŚLEPKA)
+{
+  "discover_causality_node": {
+    "mission": "\n    Zaprojektuj ODPORNY NA BŁĘDY, sekwencyjny przepływ pracy do weryfikacji modelu przyczynowego.\n    Kroki to: load_data, discover_causality i validate_model.\n    Węzeł 'discover_causality' jest ryzykowny i po nim musi nastąpić sprawdzenie,\n    czy operacja się powiodła. W razie błędu, proces musi zostać skierowany do uniwersalnego debuggera,\n    a następnie spróbować ponownie wykonać krok 'discover_causality'.\n    ",
+    "input_path": "gs://super_model/data/structural_data/synthetic_fraud_dataset.csv",
+    "dataframe": "<DataFrame Shape: (0, 0)>",
+    "causal_graph": null,
+    "validation_report": {},
+    "final_summary": "",
+    "error": ""
+  }
+}
+... CONDITION: check_for_error (ZAŚLEPKA) -> 'success'
+{
+  "check_discovery_status": {
+    "mission": "\n    Zaprojektuj ODPORNY NA BŁĘDY, sekwencyjny przepływ pracy do weryfikacji modelu przyczynowego.\n    Kroki to: load_data, discover_causality i validate_model.\n    Węzeł 'discover_causality' jest ryzykowny i po nim musi nastąpić sprawdzenie,\n    czy operacja się powiodła. W razie błędu, proces musi zostać skierowany do uniwersalnego debuggera,\n    a następnie spróbować ponownie wykonać krok 'discover_causality'.\n    ",
+    "input_path": "gs://super_model/data/structural_data/synthetic_fraud_dataset.csv",
+    "dataframe": "<DataFrame Shape: (0, 0)>",
+    "causal_graph": null,
+    "validation_report": {},
+    "final_summary": "",
+    "error": ""
+  }
+}

@@ -42,9 +42,9 @@ def human_escalation_node(state: dict) -> dict:
     return state
 
 @node(name="check_for_error", description="Węzeł warunkowy. Sprawdza, czy poprzedni krok zakończył się błędem. Zwraca 'error' lub 'success'.")
-def check_for_error(state: dict) -> str:
+def check_for_error(state: dict) -> dict:
     print("... CONDITION: check_for_error (ZAŚLEPKA) -> 'success'")
-    return "success"
+    return state
     
     
 @node(name="generate_explainability_report", description="Generuje finalny raport wyjaśnialności, podsumowujący cały proces decyzyjny.")

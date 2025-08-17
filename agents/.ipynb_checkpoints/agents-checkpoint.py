@@ -13,10 +13,10 @@ class DataScientistAgent(ConversableAgent):
     def __init__(self, llm_config, prompt):
         super().__init__(name="Analityk_Danych", llm_config=llm_config, system_message=prompt)
 
-class ArchitectGPTAgent(ConversableAgent):
+class ArchitectAgent(ConversableAgent):
     """Agent-Architekt oparty na modelu GPT, specjalizujący się w projektowaniu odpornych grafów."""
     def __init__(self, llm_config, prompt):
-        super().__init__(name="Architekt_GPT", llm_config=llm_config, system_message=prompt)
+        super().__init__(name="Architekt", llm_config=llm_config, system_message=prompt)
 
 class CriticAgent(ConversableAgent):
     """Agent oceniający plan i dbający o jego jakość."""

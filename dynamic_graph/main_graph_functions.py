@@ -1,4 +1,5 @@
 import json
+import pandas as pd 
 import os
 import io
 import autogen
@@ -21,6 +22,15 @@ PROMPT_FACTORY_MAP = {
     DataScientistAgent: PromptEngine.for_data_analyst,
     # Można tu dodawać kolejne typy planerów w przyszłości
 }
+
+
+def json_serializable_default(o):
+    if isinstance(o, pd.DataFrame):
+        # Jeśli obiekt to DataFrame, zamień go na słownik
+        # lub zwróć tylko informacje o nim, np. kształt, by nie zaśmiecać logów.
+        return f"<DataFrame Shape: {o.shape}>"
+    # Dla innych nieznanych typów zgłoś błąd, tak jak domyślnie.
+    raise TypeError(f'Object of type {o.__class__.__name__} is not JSON serializable')
 
 
 def run_collaborative_planning(mission: str, router_llm_config: Dict) -> Optional[WorkflowPlan]:
@@ -255,7 +265,7 @@ def build_and_run_graph(plan: WorkflowPlan, state_schema: Type, initial_state: D
         
         print("\n--- URUCHOMIENIE GRAFU ---")
         for event in app.stream(initial_state, stream_config):
-            print(json.dumps(event, indent=2, ensure_ascii=False))
+            print(json.dumps(event, indent=2, ensure_ascii=False, default=json_serializable_default))
 
     except Exception as e:
         # Jeśli wystąpi JAKIKOLWIEK błąd, również go zapisujemy do bufora

@@ -127,83 +127,74 @@
 ---[ TURA 2: Mówca: Ekspert_Przyczynowosci ]---
 
 --- Myśli Agenta ---
-1. **Analiza Misji:** Kluczowym wymaganiem jest stworzenie ODPORNEGO NA BŁĘDY przepływu pracy. Główne kroki to `load_data`, `discover_causality` i `validate_model`. Węzeł `discover_causality` jest ryzykowny i wymaga specjalnego traktowania: po jego wykonaniu musi nastąpić weryfikacja błędu. W przypadku błędu, proces jest kierowany do `universal_debugger`, a następnie pętla wraca, by ponowić próbę `discover_causality`. W przypadku sukcesu, proces kontynuuje do `validate_model`.
+1. **Analiza Misji:** Kluczowym wymaganiem jest stworzenie odpornego na błędy przepływu pracy. Główna sekwencja to `load_data` -> `discover_causality` -> `validate_model`. Węzeł `discover_causality` jest ryzykowny i wymaga specjalnego traktowania. W przypadku błędu, proces musi zostać przekierowany do `universal_debugger`, a następnie ponowić próbę wykonania `discover_causality`. To wskazuje na potrzebę pętli naprawczej.
 
-2. **Identyfikacja Węzłów:** Na podstawie misji i dostępnych narzędzi identyfikuję następujące niezbędne węzły:
-    - `node_load_data` (implementacja: `load_data`): Punkt startowy, wczytanie danych.
-    - `node_discover_causality` (implementacja: `discover_causality`): Ryzykowny krok odkrywania przyczynowości.
-    - `node_check_discovery_error` (implementacja: `check_for_error`): Węzeł decyzyjny, który sprawdzi, czy poprzedni krok się powiódł.
-    - `node_debug_discovery` (implementacja: `universal_debugger`): Węzeł obsługi błędu.
-    - `node_validate_model` (implementacja: `validate_model`): Kolejny krok sekwencyjny po udanym odkryciu przyczynowości.
-    - `node_generate_report` (implementacja: `generate_explainability_report`): Logiczny krok końcowy, podsumowujący cały proces.
+2. **Identyfikacja Węzłów:** Na podstawie misji i dostępnych narzędzi, identyfikuję następujące niezbędne węzły:
+    - `load_data_node` (implementacja: `load_data`): Punkt startowy.
+    - `discover_causality_node` (implementacja: `discover_causality`): Ryzykowny, główny krok przetwarzania.
+    - `check_discovery_status_node` (implementacja: `check_for_error`): Węzeł warunkowy do sprawdzenia wyniku `discover_causality_node`.
+    - `debug_discovery_node` (implementacja: `universal_debugger`): Węzeł naprawczy uruchamiany w przypadku błędu.
+    - `validate_model_node` (implementacja: `validate_model`): Końcowy krok walidacji, wykonywany tylko po sukcesie.
 
-3. **Projektowanie Przepływu (Krawędzie):**
-    - **Wejście:** Proces musi się zacząć od wczytania danych, więc `entry_point` to `node_load_data`.
-    - **Sekwencja Podstawowa:** `node_load_data` -> `node_discover_causality`.
-    - **Obsługa Błędu (Rozgałęzienie):** Po `node_discover_causality` następuje `node_check_discovery_error`. Ten węzeł jest warunkowy:
-        - Jeśli `check_for_error` zwróci `true` (wystąpił błąd), przepływ idzie do `node_debug_discovery`.
-        - Jeśli `check_for_error` zwróci `false` (sukces), przepływ idzie do `node_validate_model`.
-    - **Pętla Naprawcza:** Po zakończeniu pracy `node_debug_discovery`, przepływ musi wrócić, aby ponowić próbę, czyli kieruje się z powrotem do `node_discover_causality`.
-    - **Finalizacja:** Po pomyślnej walidacji w `node_validate_model`, proces przechodzi do generowania raportu w `node_generate_report`, co stanowi jego zakończenie.
+3. **Projektowanie Przepływu (Krawędzi):**
+    - **Wejście:** Proces rozpoczyna się od `load_data_node`.
+    - **Sekwencja podstawowa:** `load_data_node` prowadzi do `discover_causality_node`.
+    - **Obsługa błędu:** Po `discover_causality_node` musi nastąpić `check_discovery_status_node`.
+    - **Rozgałęzienie warunkowe:** `check_discovery_status_node` będzie miało dwa wyjścia:
+        - Jeśli wynik to 'success', przepływ przechodzi do `validate_model_node`.
+        - Jeśli wynik to 'error', przepływ przechodzi do `debug_discovery_node`.
+    - **Pętla naprawcza:** Po zakończeniu `debug_discovery_node`, przepływ musi wrócić do `discover_causality_node`, aby ponowić próbę. To zamyka pętlę.
+    - **Zakończenie:** Po pomyślnym wykonaniu `validate_model_node`, przepływ kończy się, ponieważ misja nie określa dalszych kroków.
 
-4. **Finalna Struktura JSON:** Kompiluję zidentyfikowane węzły i krawędzie w wymaganym formacie JSON, upewniając się, że `entry_point` jest poprawnie zdefiniowany, a wszystkie krawędzie, w tym warunkowa i pętla, są precyzyjnie opisane.
+4. **Finalizacja Struktury JSON:** Kompiluję zidentyfikowane węzły i krawędzie w wymaganym formacie JSON, ustawiając `load_data_node` jako `entry_point` i upewniając się, że wszystkie połączenia, w tym warunkowe i pętla, są poprawnie zdefiniowane.
 
 --- Oficjalna Odpowiedź ---
 {
-  "entry_point": "node_load_data",
+  "entry_point": "load_data_node",
   "nodes": [
     {
-      "name": "node_load_data",
+      "name": "load_data_node",
       "implementation": "load_data"
     },
     {
-      "name": "node_discover_causality",
+      "name": "discover_causality_node",
       "implementation": "discover_causality"
     },
     {
-      "name": "node_check_discovery_error",
+      "name": "check_discovery_status_node",
       "implementation": "check_for_error"
     },
     {
-      "name": "node_debug_discovery",
+      "name": "debug_discovery_node",
       "implementation": "universal_debugger"
     },
     {
-      "name": "node_validate_model",
+      "name": "validate_model_node",
       "implementation": "validate_model"
-    },
-    {
-      "name": "node_generate_report",
-      "implementation": "generate_explainability_report"
     }
   ],
   "edges": [
     {
-      "from": "node_load_data",
-      "to": "node_discover_causality"
+      "from": "load_data_node",
+      "to": "discover_causality_node"
     },
     {
-      "from": "node_discover_causality",
-      "to": "node_check_discovery_error"
+      "from": "discover_causality_node",
+      "to": "check_discovery_status_node"
     },
     {
-      "from": "node_check_discovery_error",
-      "condition": "check_for_error",
+      "from": "check_discovery_status_node",
       "routes": {
-        "true": "node_debug_discovery",
-        "false": "node_validate_model"
+        "success": "validate_model_node",
+        "error": "debug_discovery_node"
       }
     },
     {
-      "from": "node_debug_discovery",
-      "to": "node_discover_causality"
+      "from": "debug_discovery_node",
+      "to": "discover_causality_node"
     },
     {
-      "from": "node_validate_model",
-      "to": "node_generate_report"
-    },
-    {
-      "from": "node_generate_report",
+      "from": "validate_model_node",
       "to": null
     }
   ]
@@ -213,90 +204,336 @@
 
 ============================================================
 
----[ TURA 3: Mówca: Krytyk_Jakosci ]---
+---[ TURA 3: Mówca: Architekt ]---
 
 --- Myśli Agenta ---
-1. **Analiza Misji:** Kluczowym wymaganiem jest stworzenie ODPORNEGO NA BŁĘDY przepływu pracy. Główne kroki to `load_data`, `discover_causality` i `validate_model`. Węzeł `discover_causality` jest ryzykowny i wymaga specjalnego traktowania: po jego wykonaniu musi nastąpić weryfikacja błędu. W przypadku błędu, proces jest kierowany do `universal_debugger`, a następnie pętla wraca, by ponowić próbę `discover_causality`. W przypadku sukcesu, proces kontynuuje do `validate_model`.
+1. **Analiza Misji:** Kluczowym wymaganiem jest stworzenie odpornego na błędy przepływu pracy. Główna sekwencja to `load_data` -> `discover_causality` -> `validate_model`. Węzeł `discover_causality` jest ryzykowny i wymaga specjalnego traktowania. W przypadku błędu, proces musi zostać przekierowany do `universal_debugger`, a następnie ponowić próbę wykonania `discover_causality`. To wskazuje na potrzebę pętli naprawczej.
 
-2. **Identyfikacja Węzłów:** Na podstawie misji i dostępnych narzędzi identyfikuję następujące niezbędne węzły:
-    - `node_load_data` (implementacja: `load_data`): Punkt startowy, wczytanie danych.
-    - `node_discover_causality` (implementacja: `discover_causality`): Ryzykowny krok odkrywania przyczynowości.
-    - `node_check_discovery_error` (implementacja: `check_for_error`): Węzeł decyzyjny, który sprawdzi, czy poprzedni krok się powiódł.
-    - `node_debug_discovery` (implementacja: `universal_debugger`): Węzeł obsługi błędu.
-    - `node_validate_model` (implementacja: `validate_model`): Kolejny krok sekwencyjny po udanym odkryciu przyczynowości.
-    - `node_generate_report` (implementacja: `generate_explainability_report`): Logiczny krok końcowy, podsumowujący cały proces.
+2. **Identyfikacja Węzłów:** Na podstawie misji i dostępnych narzędzi, identyfikuję następujące niezbędne węzły:
+    - `load_data_node` (implementacja: `load_data`): Punkt startowy.
+    - `discover_causality_node` (implementacja: `discover_causality`): Ryzykowny, główny krok przetwarzania.
+    - `check_discovery_status` (implementacja: `check_for_error`): Węzeł warunkowy do sprawdzenia wyniku `discover_causality_node`.
+    - `debug_discovery_error` (implementacja: `universal_debugger`): Węzeł naprawczy uruchamiany w przypadku błędu.
+    - `validate_model_node` (implementacja: `validate_model`): Końcowy krok walidacji, wykonywany tylko po sukcesie.
+    - `generate_final_report` (implementacja: `generate_explainability_report`): Finalny raport podsumowujący cały proces.
 
-3. **Projektowanie Przepływu (Krawędzie):**
-    - **Wejście:** Proces musi się zacząć od wczytania danych, więc `entry_point` to `node_load_data`.
-    - **Sekwencja Podstawowa:** `node_load_data` -> `node_discover_causality`.
-    - **Obsługa Błędu (Rozgałęzienie):** Po `node_discover_causality` następuje `node_check_discovery_error`. Ten węzeł jest warunkowy:
-        - Jeśli `check_for_error` zwróci `true` (wystąpił błąd), przepływ idzie do `node_debug_discovery`.
-        - Jeśli `check_for_error` zwróci `false` (sukces), przepływ idzie do `node_validate_model`.
-    - **Pętla Naprawcza:** Po zakończeniu pracy `node_debug_discovery`, przepływ musi wrócić, aby ponowić próbę, czyli kieruje się z powrotem do `node_discover_causality`.
-    - **Finalizacja:** Po pomyślnej walidacji w `node_validate_model`, proces przechodzi do generowania raportu w `node_generate_report`, co stanowi jego zakończenie.
+3. **Projektowanie Przepływu (Krawędzi):**
+    - **Wejście:** Proces rozpoczyna się od `load_data_node`.
+    - **Sekwencja podstawowa:** `load_data_node` prowadzi do `discover_causality_node`.
+    - **Obsługa błędu:** Po `discover_causality_node` musi nastąpić `check_discovery_status`.
+    - **Rozgałęzienie warunkowe:** `check_discovery_status` będzie miało dwa wyjścia:
+        - Jeśli wynik to 'success', przepływ przechodzi do `validate_model_node`.
+        - Jeśli wynik to 'error', przepływ przechodzi do `debug_discovery_error`.
+    - **Pętla naprawcza:** Po zakończeniu `debug_discovery_error`, przepływ musi wrócić do `discover_causality_node`, aby ponowić próbę. To zamyka pętlę.
+    - **Zakończenie:** Po pomyślnym wykonaniu `validate_model_node`, przepływ przechodzi do `generate_final_report` dla kompletności.
 
-4. **Finalna Struktura JSON:** Kompiluję zidentyfikowane węzły i krawędzie w wymaganym formacie JSON, upewniając się, że `entry_point` jest poprawnie zdefiniowany, a wszystkie krawędzie, w tym warunkowa i pętla, są precyzyjnie opisane.
+4. **Walidacja Krawędzi Warunkowych:** Dla krawędzi warunkowej z `check_discovery_status`, muszę użyć pola `condition` wskazującego na funkcję warunkową oraz `routes` definiującego mapowanie wyników.
 
 --- Oficjalna Odpowiedź ---
 {
-  "entry_point": "node_load_data",
+  "entry_point": "load_data_node",
   "nodes": [
     {
-      "name": "node_load_data",
+      "name": "load_data_node",
       "implementation": "load_data"
     },
     {
-      "name": "node_discover_causality",
+      "name": "discover_causality_node",
       "implementation": "discover_causality"
     },
     {
-      "name": "node_check_discovery_error",
+      "name": "check_discovery_status",
       "implementation": "check_for_error"
     },
     {
-      "name": "node_debug_discovery",
+      "name": "debug_discovery_error",
       "implementation": "universal_debugger"
     },
     {
-      "name": "node_validate_model",
+      "name": "validate_model_node",
       "implementation": "validate_model"
     },
     {
-      "name": "node_generate_report",
+      "name": "generate_final_report",
       "implementation": "generate_explainability_report"
     }
   ],
   "edges": [
     {
-      "from": "node_load_data",
-      "to": "node_discover_causality"
+      "from": "load_data_node",
+      "to": "discover_causality_node"
     },
     {
-      "from": "node_discover_causality",
-      "to": "node_check_discovery_error"
+      "from": "discover_causality_node",
+      "to": "check_discovery_status"
     },
     {
-      "from": "node_check_discovery_error",
+      "from": "check_discovery_status",
       "condition": "check_for_error",
       "routes": {
-        "true": "node_debug_discovery",
-        "false": "node_validate_model"
+        "success": "validate_model_node",
+        "error": "debug_discovery_error"
       }
     },
     {
-      "from": "node_debug_discovery",
-      "to": "node_discover_causality"
+      "from": "debug_discovery_error",
+      "to": "discover_causality_node"
     },
     {
-      "from": "node_validate_model",
-      "to": "node_generate_report"
-    },
-    {
-      "from": "node_generate_report",
-      "to": null
+      "from": "validate_model_node",
+      "to": "generate_final_report"
     }
   ]
 }
+
+```
+
+============================================================
+
+---[ TURA 4: Mówca: Krytyk_Jakosci ]---
+
+--- Myśli Agenta ---
+**STEP 1: FORMAL VERIFICATION**
+Sprawdzam poprawność składni JSON - struktura jest poprawna, wszystkie wymagane pola są obecne: `thought_process`, `entry_point`, `nodes`, `edges`. Format jest zgodny ze schematem WorkflowPlan.
+
+**STEP 2: LOGICAL & MISSION-BASED ANALYSIS**
+Analizuję zgodność z misją:
+- ✓ Sekwencja główna: load_data -> discover_causality -> validate_model jest zachowana
+- ✓ Obsługa błędu dla discover_causality: jest sprawdzenie przez check_discovery_status
+- ✓ Przekierowanie do debuggera: przy błędzie przepływ idzie do debug_discovery_error
+- ✓ Ponowna próba: po debuggerze wraca do discover_causality_node
+- ✓ Odporność na błędy: pętla naprawcza jest zaimplementowana
+
+**STEP 3: ARCHITECTURAL ASSESSMENT**
+Ocena jakości planu:
+- **Prostota**: Plan jest przejrzysty i logiczny, choć dodano generate_final_report, co nie było wymogiem misji, ale zwiększa kompletność.
+- **Odporność**: Pętla naprawcza zapewnia odporność na błędy w krytycznym węźle.
+- **Czytelność**: Nazwy węzłów są opisowe i jasne.
+
+**STEP 4: CRITICAL ISSUE IDENTIFIED**
+Znalazłem krytyczny błąd w definicji krawędzi warunkowej!
+
+W krawędzi z `check_discovery_status` występuje redundancja:
+- Pole `condition` jest ustawione na `check_for_error`
+- ALE węzeł `check_discovery_status` już ma `implementation: check_for_error`
+
+To jest błąd konceptualny. Pole `condition` w krawędzi powinno być używane gdy SAMA KRAWĘDŹ wykonuje sprawdzenie warunkowe. Tutaj mamy dedykowany WĘZEŁ warunkowy, który już wykonuje `check_for_error`. Krawędź powinna tylko definiować `routes` bez dodatkowego `condition`.
+
+**VERDICT: FLAW DETECTED - Niepoprawne użycie pola `condition` w krawędzi warunkowej**
+
+--- Oficjalna Odpowiedź ---
+{
+  "flaw_description": "W krawędzi wychodzącej z węzła `check_discovery_status` niepotrzebnie użyto pola `condition: check_for_error`. Skoro węzeł `check_discovery_status` już implementuje funkcję `check_for_error`, to krawędź powinna jedynie definiować routing za pomocą pola `routes`, bez dodatkowego pola `condition`. Pole `condition` jest używane gdy sama krawędź ma wykonać sprawdzenie, a nie gdy wychodzi z węzła warunkowego.",
+  "suggested_correction": "Usuń pole `condition` z krawędzi wychodzącej z `check_discovery_status`. Poprawna definicja tej krawędzi powinna wyglądać tak:\n```json\n{\n  \"from\": \"check_discovery_status\",\n  \"routes\": {\n    \"success\": \"validate_model_node\",\n    \"error\": \"debug_discovery_error\"\n  }\n}\n```\nWęzeł `check_discovery_status` sam wykonuje funkcję warunkową `check_for_error` i zwraca wynik ('success' lub 'error'), który jest następnie używany do routingu przez pole `routes`."
+}
+
+```
+
+============================================================
+
+---[ TURA 5: Mówca: Ekspert_Przyczynowosci ]---
+
+--- Myśli Agenta ---
+**STEP 1: FORMAL VERIFICATION**
+Sprawdzam poprawność składni JSON - struktura jest poprawna, wszystkie wymagane pola są obecne: `thought_process`, `entry_point`, `nodes`, `edges`. Format jest zgodny ze schematem WorkflowPlan.
+
+**STEP 2: LOGICAL & MISSION-BASED ANALYSIS**
+Analizuję zgodność z misją:
+- ✓ Sekwencja główna: load_data -> discover_causality -> validate_model jest zachowana
+- ✓ Obsługa błędu dla discover_causality: jest sprawdzenie przez check_discovery_status
+- ✓ Przekierowanie do debuggera: przy błędzie przepływ idzie do debug_discovery_error
+- ✓ Ponowna próba: po debuggerze wraca do discover_causality_node
+- ✓ Odporność na błędy: pętla naprawcza jest zaimplementowana
+
+**STEP 3: ARCHITECTURAL ASSESSMENT**
+Ocena jakości planu:
+- **Prostota**: Plan jest przejrzysty i logiczny, choć dodano generate_final_report, co nie było wymogiem misji, ale zwiększa kompletność.
+- **Odporność**: Pętla naprawcza zapewnia odporność na błędy w krytycznym węźle.
+- **Czytelność**: Nazwy węzłów są opisowe i jasne.
+
+**STEP 4: CRITICAL ISSUE IDENTIFIED**
+Znalazłem krytyczny błąd w definicji krawędzi warunkowej!
+
+W krawędzi z `check_discovery_status` występuje redundancja:
+- Pole `condition` jest ustawione na `check_for_error`
+- ALE węzeł `check_discovery_status` już ma `implementation: check_for_error`
+
+To jest błąd konceptualny. Pole `condition` w krawędzi powinno być używane gdy SAMA KRAWĘDŹ wykonuje sprawdzenie warunkowe. Tutaj mamy dedykowany WĘZEŁ warunkowy, który już wykonuje `check_for_error`. Krawędź powinna tylko definiować `routes` bez dodatkowego `condition`.
+
+**VERDICT: FLAW DETECTED - Niepoprawne użycie pola `condition` w krawędzi warunkowej**
+
+--- Oficjalna Odpowiedź ---
+{
+  "flaw_description": "W krawędzi wychodzącej z węzła `check_discovery_status` niepotrzebnie użyto pola `condition: check_for_error`. Skoro węzeł `check_discovery_status` już implementuje funkcję `check_for_error`, to krawędź powinna jedynie definiować routing za pomocą pola `routes`, bez dodatkowego pola `condition`. Pole `condition` jest używane gdy sama krawędź ma wykonać sprawdzenie, a nie gdy wychodzi z węzła warunkowego.",
+  "suggested_correction": "Usuń pole `condition` z krawędzi wychodzącej z `check_discovery_status`. Poprawna definicja tej krawędzi powinna wyglądać tak:\n```json\n{\n  \"from\": \"check_discovery_status\",\n  \"routes\": {\n    \"success\": \"validate_model_node\",\n    \"error\": \"debug_discovery_error\"\n  }\n}\n```\nWęzeł `check_discovery_status` sam wykonuje funkcję warunkową `check_for_error` i zwraca wynik ('success' lub 'error'), który jest następnie używany do routingu przez pole `routes`."
+}
+
+```
+
+============================================================
+
+---[ TURA 6: Mówca: Architekt ]---
+
+--- Myśli Agenta ---
+1. **Analiza Misji:** Kluczowym wymaganiem jest stworzenie odpornego na błędy przepływu pracy. Główna sekwencja to `load_data` -> `discover_causality` -> `validate_model`. Węzeł `discover_causality` jest ryzykowny i wymaga specjalnego traktowania. W przypadku błędu, proces musi zostać przekierowany do `universal_debugger`, a następnie ponowić próbę wykonania `discover_causality`. To wskazuje na potrzebę pętli naprawczej.
+
+2. **Identyfikacja Węzłów:** Na podstawie misji i dostępnych narzędzi, identyfikuję następujące niezbędne węzły:
+    - `load_data_node` (implementacja: `load_data`): Punkt startowy.
+    - `discover_causality_node` (implementacja: `discover_causality`): Ryzykowny, główny krok przetwarzania.
+    - `check_discovery_status` (implementacja: `check_for_error`): Węzeł warunkowy do sprawdzenia wyniku `discover_causality_node`.
+    - `debug_discovery_error` (implementacja: `universal_debugger`): Węzeł naprawczy uruchamiany w przypadku błędu.
+    - `validate_model_node` (implementacja: `validate_model`): Końcowy krok walidacji, wykonywany tylko po sukcesie.
+
+3. **Projektowanie Przepływu (Krawędzi):**
+    - **Wejście:** Proces rozpoczyna się od `load_data_node`.
+    - **Sekwencja podstawowa:** `load_data_node` prowadzi do `discover_causality_node`.
+    - **Obsługa błędu:** Po `discover_causality_node` musi nastąpić `check_discovery_status`.
+    - **Rozgałęzienie warunkowe:** Z węzła `check_discovery_status` (który sam wykonuje funkcję warunkową `check_for_error`) wychodzi krawędź z routingiem:
+        - Jeśli wynik to 'success', przepływ przechodzi do `validate_model_node`.
+        - Jeśli wynik to 'error', przepływ przechodzi do `debug_discovery_error`.
+    - **Pętla naprawcza:** Po zakończeniu `debug_discovery_error`, przepływ musi wrócić do `discover_causality_node`, aby ponowić próbę. To zamyka pętlę.
+    - **Zakończenie:** Po pomyślnym wykonaniu `validate_model_node`, przepływ kończy się (brak dalszych kroków w misji).
+
+4. **Walidacja Struktury:** Upewniam się, że krawędź warunkowa z węzła `check_discovery_status` używa tylko pola `routes` (bez redundantnego `condition`), ponieważ sam węzeł już wykonuje funkcję warunkową.
+
+--- Oficjalna Odpowiedź ---
+{
+  "entry_point": "load_data_node",
+  "nodes": [
+    {
+      "name": "load_data_node",
+      "implementation": "load_data"
+    },
+    {
+      "name": "discover_causality_node",
+      "implementation": "discover_causality"
+    },
+    {
+      "name": "check_discovery_status",
+      "implementation": "check_for_error"
+    },
+    {
+      "name": "debug_discovery_error",
+      "implementation": "universal_debugger"
+    },
+    {
+      "name": "validate_model_node",
+      "implementation": "validate_model"
+    }
+  ],
+  "edges": [
+    {
+      "from": "load_data_node",
+      "to": "discover_causality_node"
+    },
+    {
+      "from": "discover_causality_node",
+      "to": "check_discovery_status"
+    },
+    {
+      "from": "check_discovery_status",
+      "routes": {
+        "success": "validate_model_node",
+        "error": "debug_discovery_error"
+      }
+    },
+    {
+      "from": "debug_discovery_error",
+      "to": "discover_causality_node"
+    }
+  ]
+}
+
+```
+
+============================================================
+
+---[ TURA 7: Mówca: Krytyk_Jakosci ]---
+
+--- Myśli Agenta ---
+**STEP 1: FORMAL VERIFICATION**
+Sprawdzam poprawność składni JSON:
+- Struktura JSON jest poprawna
+- Wszystkie wymagane pola są obecne: `thought_process`, `entry_point`, `nodes`, `edges`
+- Typy danych są zgodne ze schematem
+- Każdy węzeł ma `name` i `implementation`
+- Krawędzie mają poprawną strukturę
+
+**STEP 2: LOGICAL & MISSION-BASED ANALYSIS**
+Weryfikuję zgodność z misją:
+- ✓ Sekwencja główna zachowana: load_data → discover_causality → validate_model
+- ✓ Węzeł discover_causality oznaczony jako ryzykowny jest obsługiwany
+- ✓ Po discover_causality następuje sprawdzenie błędu (check_discovery_status)
+- ✓ W razie błędu proces kierowany do universal_debugger (debug_discovery_error)
+- ✓ Po debugowaniu następuje ponowna próba (powrót do discover_causality_node)
+- ✓ Tylko po sukcesie następuje validate_model
+- ✓ Plan jest ODPORNY NA BŁĘDY dzięki pętli naprawczej
+
+**STEP 3: ARCHITECTURAL ASSESSMENT**
+**Prostota:** Plan jest minimalistyczny i zawiera tylko niezbędne elementy. Usunięto zbędny generate_final_report.
+**Odporność:** Pętla naprawcza (discover → check → debug → discover) zapewnia mechanizm powtarzania przy błędach.
+**Czytelność:** Nazwy węzłów są jasne i opisowe.
+**Poprawność techniczna:** Krawędź warunkowa z check_discovery_status poprawnie używa tylko `routes` bez redundantnego `condition`.
+
+**STEP 4: FINAL VERIFICATION**
+Plan spełnia wszystkie wymagania:
+1. Jest sekwencyjny zgodnie z misją
+2. Implementuje obsługę błędów dla ryzykownego węzła
+3. Zawiera pętlę naprawczą przez debugger
+4. Jest prosty i czytelny
+5. Nie ma błędów technicznych
+
+**VERDICT: PLAN APPROVED - Plan jest bezbłędny i w pełni realizuje wymagania misji**
+
+--- Oficjalna Odpowiedź ---
+{
+  "entry_point": "load_data_node",
+  "nodes": [
+    {
+      "name": "load_data_node",
+      "implementation": "load_data"
+    },
+    {
+      "name": "discover_causality_node",
+      "implementation": "discover_causality"
+    },
+    {
+      "name": "check_discovery_status",
+      "implementation": "check_for_error"
+    },
+    {
+      "name": "debug_discovery_error",
+      "implementation": "universal_debugger"
+    },
+    {
+      "name": "validate_model_node",
+      "implementation": "validate_model"
+    }
+  ],
+  "edges": [
+    {
+      "from": "load_data_node",
+      "to": "discover_causality_node"
+    },
+    {
+      "from": "discover_causality_node",
+      "to": "check_discovery_status"
+    },
+    {
+      "from": "check_discovery_status",
+      "routes": {
+        "success": "validate_model_node",
+        "error": "debug_discovery_error"
+      }
+    },
+    {
+      "from": "debug_discovery_error",
+      "to": "discover_causality_node"
+    }
+  ]
+}
+
+```
 
 PLAN_ZATWIERDZONY
 

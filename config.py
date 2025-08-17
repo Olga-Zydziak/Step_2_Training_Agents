@@ -34,10 +34,11 @@ MAIN_AGENT="gemini-2.5-pro"
 API_TYPE_GEMINI=str(ApiType.GOOGLE)
 
 CRITIC_MODEL="claude-3-7-sonnet-20250219"
+ARCHITECT_MODEL ="claude-opus-4-1-20250805"
 CODE_MODEL="claude-sonnet-4-20250514"
 QUICK_SMART_MODEL="gemini-2.5-flash"
 
-GPT_MODEL = "gpt-5" # Używamy gpt-4o jako odpowiednika "gpt-5"
+GPT_MODEL = "gpt-4o" # Używamy gpt-4o jako odpowiednika "gpt-5"
 API_TYPE_OPENAI = str(ApiType.OPENAI)
 
 API_TYPE_SONNET = str(ApiType.ANTHROPIC)
@@ -61,7 +62,7 @@ os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
 os.environ["LANGCHAIN_PROJECT"] = "Projekt Multi-Agent-System Dynamic-graphs"
 os.environ["ANTHROPIC_API_KEY"] =ANTHROPIC_API_KEY
 os.environ["TAVILY_API_KEY"] = TAVILY_API_KEY
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+# os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 #---cache-------
 langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
 
